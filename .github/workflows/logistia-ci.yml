@@ -1,0 +1,52 @@
+name: LOGISTIA CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  logistia-lint:
+    name: Lint et validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.4"
+          terraform_wrapper: false
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: infra/terraform
+
+      - name: Terraform init
+        run: terraform init -backend=false -input=false
+        working-directory: infra/terraform
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: infra/terraform
+
+      - name: Ansible syntax check
+        run: |
+          pip install ansible --quiet
+          ANSIBLE_ROLES_PATH=roles ansible-playbook \
+            -i logistia-inventory.ini \
+            --syntax-check \
+            playbooks/logistia-site.yml
+        working-directory: ansible
+
+      - name: Trivy scan securite
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true

@@ -1,0 +1,108 @@
+---
+- name: Installer dependances ia-logistia
+  apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+      - curl
+      - jq
+    state: present
+
+- name: Installer Ollama
+  shell: curl -fsSL https://ollama.com/install.sh | sh
+  args:
+    creates: /usr/local/bin/ollama
+
+- name: Repertoire configuration Ollama LOGISTIA
+  file:
+    path: /etc/systemd/system/ollama.service.d
+    state: directory
+    mode: '0755'
+
+- name: Ollama ecoute sur reseau LOGISTIA
+  copy:
+    dest: /etc/systemd/system/ollama.service.d/logistia-network.conf
+    content: |
+      [Service]
+      Environment="OLLAMA_HOST=0.0.0.0:11434"
+
+- name: Activer Ollama
+  systemd:
+    name: ollama
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Installer scikit-learn pour Isolation Forest
+  pip:
+    name:
+      - scikit-learn
+      - numpy
+      - requests
+    break_system_packages: true
+
+- name: Repertoire analyseur LOGISTIA
+  file:
+    path: /opt/logistia-ia
+    state: directory
+    mode: '0755'
+
+- name: Script logistia-analyzer.py
+  copy:
+    src: logistia-analyzer.py
+    dest: /opt/logistia-ia/logistia-analyzer.py
+    mode: '0755'
+
+- name: Repertoire logs analyseur LOGISTIA
+  file:
+    path: /var/log/logistia-ia
+    state: directory
+    mode: '0755'
+
+- name: Service systemd logistia-analyzer
+  copy:
+    dest: /etc/systemd/system/logistia-analyzer.service
+    content: |
+      [Unit]
+      Description=LOGISTIA IA Log Analyzer
+      After=ollama.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/python3 /opt/logistia-ia/logistia-analyzer.py
+      StandardOutput=append:/var/log/logistia-ia/logistia-analysis.log
+      StandardError=append:/var/log/logistia-ia/logistia-analysis.log
+
+- name: Timer systemd logistia-analyzer toutes les 5 minutes
+  copy:
+    dest: /etc/systemd/system/logistia-analyzer.timer
+    content: |
+      [Unit]
+      Description=Analyse logs LOGISTIA toutes les 5 minutes
+
+      [Timer]
+      OnBootSec=2min
+      OnUnitActiveSec=5m
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+- name: Activer timer logistia-analyzer
+  systemd:
+    name: logistia-analyzer.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Node Exporter metriques soc-logistia
+  apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Activer Node Exporter
+  systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started

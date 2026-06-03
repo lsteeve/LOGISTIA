@@ -1,0 +1,39 @@
+---
+- name: Mise a jour apt
+  apt:
+    update_cache: true
+    upgrade: dist
+    cache_valid_time: 3600
+  ignore_errors: true
+
+- name: Paquets communs LOGISTIA
+  apt:
+    name:
+      - qemu-guest-agent
+      - curl
+      - wget
+      - git
+      - vim
+      - htop
+      - net-tools
+      - ca-certificates
+      - gpg
+      - python3
+      - python3-pip
+      - rsyslog
+      - sudo
+    state: present
+
+- name: qemu-guest-agent actif
+  systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+
+- name: rsyslog vers soc-logistia
+  lineinfile:
+    path: /etc/rsyslog.conf
+    line: "*.* @10.40.40.10:514"
+    state: present
+  when: inventory_hostname != 'soc-logistia'
+  notify: restart rsyslog

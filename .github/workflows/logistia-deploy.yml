@@ -1,0 +1,93 @@
+name: LOGISTIA Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      terraform_action:
+        description: Action Terraform
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+      run_ansible:
+        description: Lancer Ansible apres Terraform
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+jobs:
+  logistia-deploy:
+    name: Deploiement infrastructure LOGISTIA
+    runs-on: self-hosted
+
+    env:
+      TF_VAR_proxmox_password:     ${{ secrets.PROXMOX_PASSWORD }}
+      TF_VAR_proxmox_ssh_password: ${{ secrets.PROXMOX_SSH_PASSWORD }}
+      TF_VAR_ssh_public_key:       ${{ secrets.SSH_PUBLIC_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verification secrets
+        run: |
+          test -n "${{ secrets.PROXMOX_PASSWORD }}"     || (echo "PROXMOX_PASSWORD manquant" && exit 1)
+          test -n "${{ secrets.PROXMOX_SSH_PASSWORD }}" || (echo "PROXMOX_SSH_PASSWORD manquant" && exit 1)
+          test -n "${{ secrets.SSH_PUBLIC_KEY }}"       || (echo "SSH_PUBLIC_KEY manquant" && exit 1)
+
+      - name: Preparation state Terraform
+        run: |
+          STATE="${LOGISTIA_STATE_PATH:-/srv/logistia/terraform/logistia.tfstate}"
+          mkdir -p "$(dirname $STATE)"
+
+      - name: Terraform init
+        run: |
+          STATE="${LOGISTIA_STATE_PATH:-/srv/logistia/terraform/logistia.tfstate}"
+          terraform init -input=false -backend-config="path=$STATE"
+        working-directory: infra/terraform
+
+      - name: Terraform plan
+        run: terraform plan -input=false -out=logistia-plan.tfplan
+        working-directory: infra/terraform
+
+      - name: Terraform apply
+        if: ${{ github.event.inputs.terraform_action == 'apply' }}
+        run: terraform apply -auto-approve logistia-plan.tfplan
+        working-directory: infra/terraform
+
+      - name: Attente demarrage machines cloud-init
+        if: ${{ github.event.inputs.run_ansible == 'true' && github.event.inputs.terraform_action == 'apply' }}
+        run: sleep 90
+
+      - name: Preparation cle SSH Ansible
+        if: ${{ github.event.inputs.run_ansible == 'true' }}
+        run: |
+          echo "${{ secrets.ANSIBLE_PRIVATE_KEY }}" > /tmp/logistia_ed25519
+          chmod 600 /tmp/logistia_ed25519
+
+      - name: Preparation secrets Ansible Vault
+        if: ${{ github.event.inputs.run_ansible == 'true' }}
+        run: |
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/logistia-vault-pass
+          chmod 600 /tmp/logistia-vault-pass
+          cp ansible/group_vars/logistia-all.yml.example ansible/group_vars/logistia-all.yml
+          cp ansible/group_vars/logistia-vault.yml.example ansible/group_vars/logistia-vault.yml
+
+      - name: Deploiement Ansible LOGISTIA
+        if: ${{ github.event.inputs.run_ansible == 'true' }}
+        run: |
+          ansible-playbook \
+            -i logistia-inventory.ini \
+            playbooks/logistia-site.yml \
+            --private-key /tmp/logistia_ed25519 \
+            --vault-password-file /tmp/logistia-vault-pass
+        working-directory: ansible
+        timeout-minutes: 45
+
+      - name: Nettoyage fichiers temporaires
+        if: always()
+        run: rm -f /tmp/logistia_ed25519 /tmp/logistia-vault-pass

@@ -1,0 +1,27 @@
+# Terraform
+*.tfvars
+!terraform.tfvars.example
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+logistia-plan.tfplan
+
+# Ansible secrets
+group_vars/logistia-all.yml
+group_vars/logistia-vault.yml
+*.retry
+
+# Clés SSH
+logistia_ed25519
+logistia_ed25519.pub
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,64 @@
+---
+- name: Configuration commune toutes machines LOGISTIA
+  hosts: all
+  become: true
+  roles:
+    - logistia-common
+
+- name: Durcissement securite CIS L1
+  hosts: all
+  become: true
+  roles:
+    - logistia-hardening
+
+- name: router-logistia — NAT nftables WireGuard
+  hosts: routers
+  become: true
+  roles:
+    - logistia-router
+
+- name: app-logistia — Nginx Dolibarr Traccar
+  hosts: apps
+  become: true
+  roles:
+    - logistia-app
+
+- name: db-logistia — MariaDB VLAN Data
+  hosts: databases
+  become: true
+  roles:
+    - logistia-db
+
+- name: devops-logistia — GitHub Runner Terraform Ansible
+  hosts: devops
+  become: true
+  roles:
+    - logistia-devops
+
+- name: soc-logistia — Wazuh Prometheus Grafana Syslog
+  hosts: soc
+  become: true
+  roles:
+    - logistia-soc
+
+- name: ia-logistia — Ollama Mistral analyseur logs
+  hosts: ia
+  become: true
+  roles:
+    - logistia-ia
+
+- name: backup-logistia — rsync 3-2-1
+  hosts: backup
+  become: true
+  roles:
+    - logistia-backup
+
+- name: Verification finale infrastructure LOGISTIA
+  hosts: all
+  become: true
+  tasks:
+    - name: qemu-guest-agent actif sur toutes les machines
+      service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true

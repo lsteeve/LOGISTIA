@@ -1,0 +1,121 @@
+---
+- name: Installer gpg sur soc-logistia
+  apt:
+    name: gpg
+    state: present
+
+- name: Cle GPG Wazuh
+  shell: curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --dearmor -o /usr/share/keyrings/wazuh.gpg
+  args:
+    creates: /usr/share/keyrings/wazuh.gpg
+
+- name: Depot Wazuh
+  copy:
+    dest: /etc/apt/sources.list.d/wazuh.list
+    content: "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main\n"
+
+- name: Installer Wazuh Manager
+  apt:
+    name: wazuh-manager
+    state: present
+    update_cache: true
+
+- name: Activer Wazuh Manager
+  systemd:
+    name: wazuh-manager
+    enabled: true
+    state: started
+
+- name: Cle GPG Grafana
+  shell: wget -q -O - https://packages.grafana.com/gpg.key | gpg --dearmor -o /usr/share/keyrings/grafana.gpg
+  args:
+    creates: /usr/share/keyrings/grafana.gpg
+
+- name: Depot Grafana
+  copy:
+    dest: /etc/apt/sources.list.d/grafana.list
+    content: "deb [signed-by=/usr/share/keyrings/grafana.gpg] https://packages.grafana.com/oss/deb stable main\n"
+
+- name: Installer Grafana
+  apt:
+    name: grafana
+    state: present
+    update_cache: true
+
+- name: Activer Grafana
+  systemd:
+    name: grafana-server
+    enabled: true
+    state: started
+
+- name: Installer Prometheus et Node Exporter
+  apt:
+    name:
+      - prometheus
+      - prometheus-node-exporter
+    state: present
+
+- name: Config Prometheus scraping infrastructure LOGISTIA
+  copy:
+    dest: /etc/prometheus/logistia-prometheus.yml
+    content: |
+      global:
+        scrape_interval: 15s
+
+      scrape_configs:
+        - job_name: logistia-router
+          static_configs:
+            - targets: ['192.168.10.151:9100']
+        - job_name: logistia-app
+          static_configs:
+            - targets: ['10.10.10.10:9100']
+        - job_name: logistia-db
+          static_configs:
+            - targets: ['10.20.20.10:9100']
+        - job_name: logistia-devops
+          static_configs:
+            - targets: ['10.30.30.10:9100']
+        - job_name: logistia-soc
+          static_configs:
+            - targets: ['10.40.40.10:9100']
+        - job_name: logistia-ia
+          static_configs:
+            - targets: ['10.50.50.10:9100']
+        - job_name: logistia-backup
+          static_configs:
+            - targets: ['10.60.60.10:9100']
+  notify: restart prometheus
+
+- name: Activer Prometheus avec config LOGISTIA
+  systemd:
+    name: prometheus
+    enabled: true
+    state: started
+
+- name: Installer syslog-ng centralisation logs
+  apt:
+    name: syslog-ng
+    state: present
+
+- name: Config syslog-ng reception logs toutes machines LOGISTIA
+  copy:
+    dest: /etc/syslog-ng/conf.d/logistia-syslog.conf
+    content: |
+      source logistia-network {
+        udp(ip(0.0.0.0) port(514));
+        tcp(ip(0.0.0.0) port(514));
+      };
+      destination logistia-logs {
+        file("/var/log/logistia/$HOST/$YEAR-$MONTH-$DAY.log" create-dirs(yes));
+      };
+      log {
+        source(logistia-network);
+        destination(logistia-logs);
+      };
+  notify: restart syslog-ng
+
+- name: Activer syslog-ng
+  systemd:
+    name: syslog-ng
+    enabled: true
+    state: started

@@ -1,0 +1,7 @@
+logistia_db_root_password:        "CHANGE_ME"
+logistia_db_app_password:         "CHANGE_ME"
+logistia_db_app_user:             "logistia-app"
+logistia_db_app_name:             "logistia-dolibarr"
+logistia_wazuh_api_password:      "CHANGE_ME"
+logistia_grafana_admin_password:  "CHANGE_ME"
+logistia_dolibarr_admin_password: "CHANGE_ME"

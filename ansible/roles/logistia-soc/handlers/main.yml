@@ -1,0 +1,10 @@
+---
+- name: restart syslog-ng
+  service:
+    name: syslog-ng
+    state: restarted
+
+- name: restart prometheus
+  service:
+    name: prometheus
+    state: restarted

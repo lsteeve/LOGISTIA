@@ -1,0 +1,68 @@
+---
+- name: Installer dependances devops-logistia
+  apt:
+    name:
+      - docker.io
+      - curl
+      - jq
+      - unzip
+      - git
+      - ansible
+    state: present
+
+- name: Activer Docker
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Repertoire GitHub Actions Runner LOGISTIA
+  file:
+    path: /opt/logistia-runner
+    state: directory
+    owner: logistia
+    mode: '0755'
+
+- name: Telecharger GitHub Actions Runner
+  shell: |
+    LATEST=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | jq -r .tag_name | sed 's/v//')
+    curl -fsSL "https://github.com/actions/runner/releases/download/v${LATEST}/actions-runner-linux-x64-${LATEST}.tar.gz" \
+      -o /opt/logistia-runner/runner.tar.gz
+  args:
+    creates: /opt/logistia-runner/runner.tar.gz
+
+- name: Extraire GitHub Actions Runner
+  unarchive:
+    src: /opt/logistia-runner/runner.tar.gz
+    dest: /opt/logistia-runner
+    remote_src: true
+    creates: /opt/logistia-runner/run.sh
+
+- name: Installer Terraform CLI
+  shell: |
+    curl -fsSL https://releases.hashicorp.com/terraform/1.7.4/terraform_1.7.4_linux_amd64.zip \
+      -o /tmp/logistia-terraform.zip
+    unzip -o /tmp/logistia-terraform.zip -d /usr/local/bin/
+    chmod +x /usr/local/bin/terraform
+    rm -f /tmp/logistia-terraform.zip
+  args:
+    creates: /usr/local/bin/terraform
+
+- name: Node Exporter metriques soc-logistia
+  apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Activer Node Exporter
+  systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started
+
+- name: Instructions enregistrement runner LOGISTIA
+  debug:
+    msg: >
+      Pour enregistrer le runner GitHub Actions LOGISTIA, executer sur devops-logistia :
+      cd /opt/logistia-runner
+      ./config.sh --url https://github.com/VOTRE_ORG/LOGISTIA --token VOTRE_TOKEN
+      sudo ./svc.sh install && sudo ./svc.sh start

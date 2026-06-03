@@ -1,0 +1,123 @@
+---
+- name: Installer Docker et Nginx sur app-logistia
+  apt:
+    name:
+      - docker.io
+      - nginx
+      - python3-docker
+    state: present
+    update_cache: true
+
+- name: Activer Docker
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Repertoire application LOGISTIA
+  file:
+    path: /opt/logistia-app
+    state: directory
+    mode: '0755'
+
+- name: Docker Compose Dolibarr et Traccar
+  copy:
+    dest: /opt/logistia-app/docker-compose.yml
+    content: |
+      version: '3.8'
+      services:
+        logistia-dolibarr:
+          image: dolibarr/dolibarr:latest
+          restart: always
+          environment:
+            DOLI_DB_HOST: 10.20.20.10
+            DOLI_DB_USER: logistia-app
+            DOLI_DB_PASSWORD: "{{ logistia_db_app_password | default('logistia_pass') }}"
+            DOLI_DB_NAME: logistia-dolibarr
+            DOLI_ADMIN_LOGIN: admin
+            DOLI_ADMIN_PASSWORD: "{{ logistia_dolibarr_admin_password | default('logistia2024') }}"
+            DOLI_URL_ROOT: https://10.10.10.10
+          ports:
+            - "8080:80"
+
+        logistia-traccar:
+          image: traccar/traccar:latest
+          restart: always
+          ports:
+            - "8082:8082"
+            - "5055:5055/udp"
+          volumes:
+            - logistia-traccar-data:/opt/traccar/data
+
+      volumes:
+        logistia-traccar-data:
+
+- name: Demarrer les services applicatifs LOGISTIA
+  community.docker.docker_compose_v2:
+    project_src: /opt/logistia-app
+    state: present
+  ignore_errors: true
+
+- name: Certificat SSL auto-signe LOGISTIA
+  command: >
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048
+    -keyout /etc/ssl/private/logistia-app.key
+    -out /etc/ssl/certs/logistia-app.crt
+    -subj "/CN=10.10.10.10/O=LOGISTIA"
+  args:
+    creates: /etc/ssl/certs/logistia-app.crt
+
+- name: Config Nginx reverse proxy HTTPS LOGISTIA
+  copy:
+    dest: /etc/nginx/sites-available/logistia-app
+    content: |
+      server {
+        listen 443 ssl;
+        server_name 10.10.10.10;
+        ssl_certificate     /etc/ssl/certs/logistia-app.crt;
+        ssl_certificate_key /etc/ssl/private/logistia-app.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        access_log /var/log/nginx/logistia-app-access.log combined;
+        error_log  /var/log/nginx/logistia-app-error.log warn;
+        location / {
+          proxy_pass http://127.0.0.1:8080;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-Proto $scheme;
+        }
+      }
+      server {
+        listen 80;
+        return 301 https://$host$request_uri;
+      }
+  notify: reload nginx
+
+- name: Activer site Nginx logistia-app
+  file:
+    src: /etc/nginx/sites-available/logistia-app
+    dest: /etc/nginx/sites-enabled/logistia-app
+    state: link
+  notify: reload nginx
+
+- name: Desactiver site Nginx par defaut
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: Activer Nginx
+  systemd:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Node Exporter metriques soc-logistia
+  apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Activer Node Exporter
+  systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started

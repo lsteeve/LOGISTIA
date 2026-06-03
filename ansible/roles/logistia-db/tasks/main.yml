@@ -1,0 +1,48 @@
+---
+- name: Installer MariaDB sur db-logistia
+  apt:
+    name:
+      - mariadb-server
+      - mariadb-client
+      - python3-mysqldb
+    state: present
+    update_cache: true
+
+- name: Activer MariaDB
+  systemd:
+    name: mariadb
+    enabled: true
+    state: started
+
+- name: Ecoute reseau pour app-logistia
+  lineinfile:
+    path: /etc/mysql/mariadb.conf.d/50-server.cnf
+    regexp: '^bind-address'
+    line: 'bind-address = 0.0.0.0'
+  notify: restart mariadb
+
+- name: Base de donnees logistia-dolibarr
+  community.mysql.mysql_db:
+    name: "{{ logistia_db_app_name | default('logistia-dolibarr') }}"
+    state: present
+  ignore_errors: true
+
+- name: Utilisateur logistia-app acces depuis DMZ uniquement
+  community.mysql.mysql_user:
+    name: "{{ logistia_db_app_user | default('logistia-app') }}"
+    password: "{{ logistia_db_app_password | default('logistia_pass') }}"
+    priv: "{{ logistia_db_app_name | default('logistia-dolibarr') }}.*:ALL"
+    host: "10.10.10.10"
+    state: present
+  ignore_errors: true
+
+- name: Node Exporter metriques soc-logistia
+  apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Activer Node Exporter
+  systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started

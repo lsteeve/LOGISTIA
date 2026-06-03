@@ -1,0 +1,62 @@
+---
+- name: SSH desactiver root login par mot de passe
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin prohibit-password'
+  notify: restart sshd
+
+- name: SSH authentification par cle uniquement
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+  notify: restart sshd
+
+- name: SSH timeout inactivite 5 minutes
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ClientAliveInterval'
+    line: 'ClientAliveInterval 300'
+  notify: restart sshd
+
+- name: Sysctl protection SYN flood
+  sysctl:
+    name: net.ipv4.tcp_syncookies
+    value: '1'
+    state: present
+    reload: true
+
+- name: Sysctl desactiver ICMP redirect
+  sysctl:
+    name: net.ipv4.conf.all.accept_redirects
+    value: '0'
+    state: present
+
+- name: Sysctl protection IP spoofing
+  sysctl:
+    name: net.ipv4.conf.all.rp_filter
+    value: '1'
+    state: present
+
+- name: Installer auditd
+  apt:
+    name: auditd
+    state: present
+
+- name: Activer auditd
+  systemd:
+    name: auditd
+    enabled: true
+    state: started
+
+- name: Regles auditd LOGISTIA
+  copy:
+    dest: /etc/audit/rules.d/logistia-audit.rules
+    content: |
+      -w /etc/passwd -p wa -k logistia-identity
+      -w /etc/shadow -p wa -k logistia-identity
+      -w /etc/sudoers -p wa -k logistia-sudoers
+      -w /var/log/auth.log -p wa -k logistia-auth
+      -a always,exit -F arch=b64 -S execve -k logistia-exec
+  notify: restart auditd

@@ -1,0 +1,182 @@
+---
+- name: Paquets router-logistia
+  apt:
+    name:
+      - nftables
+      - dnsmasq
+      - wireguard
+      - wireguard-tools
+      - iproute2
+    state: present
+
+- name: IP forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    reload: true
+
+- name: Interfaces VLAN permanentes
+  copy:
+    dest: /etc/network/interfaces
+    content: |
+      auto lo
+      iface lo inet loopback
+
+      auto eth0
+      iface eth0 inet static
+          address 192.168.10.151/24
+          gateway 192.168.10.254
+
+      auto ens19
+      iface ens19 inet static
+          address 10.10.10.1/24
+          comment VLAN10-app-logistia
+
+      auto ens20
+      iface ens20 inet static
+          address 10.20.20.1/24
+          comment VLAN20-db-logistia
+
+      auto ens21
+      iface ens21 inet static
+          address 10.30.30.1/24
+          comment VLAN30-devops-logistia
+
+      auto ens22
+      iface ens22 inet static
+          address 10.40.40.1/24
+          comment VLAN40-soc-logistia
+
+      auto ens23
+      iface ens23 inet static
+          address 10.50.50.1/24
+          comment VLAN50-ia-logistia
+
+      auto ens24
+      iface ens24 inet static
+          address 10.60.60.1/24
+          comment VLAN60-backup-logistia
+
+- name: Activer interfaces VLAN
+  shell: |
+    for iface in ens19 ens20 ens21 ens22 ens23 ens24; do
+      ip link set $iface up 2>/dev/null || true
+    done
+    ip addr add 10.10.10.1/24 dev ens19 2>/dev/null || true
+    ip addr add 10.20.20.1/24 dev ens20 2>/dev/null || true
+    ip addr add 10.30.30.1/24 dev ens21 2>/dev/null || true
+    ip addr add 10.40.40.1/24 dev ens22 2>/dev/null || true
+    ip addr add 10.50.50.1/24 dev ens23 2>/dev/null || true
+    ip addr add 10.60.60.1/24 dev ens24 2>/dev/null || true
+  changed_when: false
+
+- name: Regles nftables LOGISTIA
+  copy:
+    dest: /etc/nftables.conf
+    mode: '0644'
+    content: |
+      #!/usr/sbin/nft -f
+      flush ruleset
+
+      table inet logistia-filter {
+
+        chain logistia-input {
+          type filter hook input priority 0
+          policy drop
+
+          ct state established,related accept
+          iif lo accept
+          tcp dport 22 accept
+          udp dport 51820 accept
+          icmp type echo-request limit rate 10/second accept
+        }
+
+        chain logistia-forward {
+          type filter hook forward priority 0
+          policy drop
+
+          ct state established,related accept
+
+          # Internet vers app-logistia DMZ
+          iif eth0 oif ens19 tcp dport { 80, 443 } accept
+
+          # app-logistia vers db-logistia
+          iif ens19 oif ens20 tcp dport 3306 accept
+
+          # devops-logistia vers toutes machines SSH
+          iif ens21 tcp dport 22 accept
+
+          # Toutes machines vers soc-logistia logs
+          oif ens22 tcp dport { 514, 1514, 1515 } accept
+
+          # soc-logistia vers toutes machines metriques
+          iif ens22 tcp dport 9100 accept
+
+          # ia-logistia vers soc-logistia OpenSearch
+          iif ens23 oif ens22 tcp dport 9200 accept
+
+          # backup-logistia vers toutes machines rsync
+          iif ens24 tcp dport 22 accept
+
+          # Toutes machines vers Internet mises a jour
+          oif eth0 accept
+        }
+
+        chain logistia-output {
+          type filter hook output priority 0
+          policy accept
+        }
+      }
+
+      table ip logistia-nat {
+        chain logistia-postrouting {
+          type nat hook postrouting priority 100
+          ip saddr {
+            10.10.10.0/24,
+            10.20.20.0/24,
+            10.30.30.0/24,
+            10.40.40.0/24,
+            10.50.50.0/24,
+            10.60.60.0/24
+          } oif eth0 masquerade
+        }
+      }
+  notify: reload nftables
+
+- name: Activer nftables
+  systemd:
+    name: nftables
+    enabled: true
+    state: started
+
+- name: Config dnsmasq DNS LOGISTIA
+  copy:
+    dest: /etc/dnsmasq.conf
+    content: |
+      interface=lo
+      bind-interfaces
+      server=8.8.8.8
+      server=1.1.1.1
+  notify: restart dnsmasq
+  ignore_errors: true
+
+- name: Repertoire WireGuard
+  file:
+    path: /etc/wireguard
+    state: directory
+    mode: '0700'
+
+- name: Config WireGuard acces distant equipe LOGISTIA
+  copy:
+    dest: /etc/wireguard/logistia-vpn.conf
+    mode: '0600'
+    content: |
+      [Interface]
+      PrivateKey = {{ logistia_wg_private_key | default('GENERER_AVEC_wg_genkey') }}
+      Address = 10.10.10.1/24
+      ListenPort = 51820
+
+      [Peer]
+      PublicKey = {{ logistia_wg_peer_admin | default('CLE_PUBLIQUE_ADMIN') }}
+      AllowedIPs = 10.10.10.2/32

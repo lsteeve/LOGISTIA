@@ -1,0 +1,13 @@
+---
+- name: reload nftables
+  command: nft -f /etc/nftables.conf
+
+- name: restart dnsmasq
+  service:
+    name: dnsmasq
+    state: restarted
+
+- name: restart wireguard
+  service:
+    name: wg-quick@logistia-vpn
+    state: restarted
