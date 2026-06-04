@@ -10,17 +10,17 @@ Ansible, dans le dossier `ansible/` à la racine, prend le relais une fois les m
 
 ## Pourquoi séparer Terraform et Ansible
 
-Terraform parle à l'API Proxmox. Il sait créer, modifier ou supprimer des machines virtuelles. Il ne sait pas configurer ce qui tourne à l'intérieur.
+Terraform parle à l'API Proxmox. Il crée, modifie ou supprime des machines virtuelles. Il ne configure pas ce qui tourne à l'intérieur.
 
-Ansible parle en SSH aux machines. Il sait installer des paquets, écrire des fichiers de configuration et démarrer des services. Il ne sait pas créer des machines.
+Ansible parle en SSH aux machines. Il installe des paquets, écrit des fichiers de configuration et démarre des services. Il ne crée pas de machines.
 
-Cette séparation des responsabilités rend chaque outil plus simple à comprendre et à maintenir. Une erreur Terraform touche l'infrastructure. Une erreur Ansible touche la configuration d'un service. Les deux ne se mélangent pas.
+Cette séparation des responsabilités rend chaque outil plus simple à comprendre et à maintenir.
 
 ## Enchaînement du déploiement LOGISTIA
 
 1. Terraform contacte l'API Proxmox avec le token `logistia-token`
 2. Terraform clone le template Debian 13 pour chacune des sept machines
-3. cloud-init installe les paquets de base et crée l'utilisateur `logistia`
+3. `logistia-cloudinit.yaml` installe les paquets de base et crée l'utilisateur `logistia`
 4. Les machines démarrent et répondent en SSH
 5. Ansible se connecte avec la clé `logistia_ed25519`
 6. Ansible applique les rôles dans l'ordre du playbook `logistia-site.yml`

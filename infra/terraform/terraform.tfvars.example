@@ -1,8 +1,7 @@
-proxmox_url          = "https://192.168.10.150:8006"
-proxmox_user         = "terraform-logistia@pve"
-proxmox_token        = "VALEUR_DU_TOKEN_LOGISTIA"
-proxmox_ssh_password = "MOT_DE_PASSE_ROOT_PROXMOX"
-proxmox_node         = "PVE"
-proxmox_storage      = "local-lvm"
-ssh_public_key       = "ssh-ed25519 AAAA..."
-vmid_start           = 100
+proxmox_url     = "https://192.168.10.150:8006"
+proxmox_user    = "terraform-logistia@pve"
+proxmox_token   = "VALEUR_TOKEN_LOGISTIA"
+proxmox_node    = "PVE"
+proxmox_storage = "local-lvm"
+ssh_public_key  = "ssh-ed25519 AAAA..."
+vmid_start      = 100

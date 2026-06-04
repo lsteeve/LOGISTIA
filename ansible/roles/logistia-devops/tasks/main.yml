@@ -62,7 +62,7 @@
 - name: Instructions enregistrement runner LOGISTIA
   debug:
     msg: >
-      Pour enregistrer le runner GitHub Actions LOGISTIA, executer sur devops-logistia :
+      Pour enregistrer le runner GitHub Actions LOGISTIA executer sur devops-logistia :
       cd /opt/logistia-runner
       ./config.sh --url https://github.com/VOTRE_ORG/LOGISTIA --token VOTRE_TOKEN
       sudo ./svc.sh install && sudo ./svc.sh start

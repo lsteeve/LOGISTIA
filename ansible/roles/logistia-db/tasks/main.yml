@@ -27,7 +27,7 @@
     state: present
   ignore_errors: true
 
-- name: Utilisateur logistia-app acces depuis DMZ uniquement
+- name: Utilisateur logistia-app acces depuis app-logistia uniquement
   community.mysql.mysql_user:
     name: "{{ logistia_db_app_user | default('logistia-app') }}"
     password: "{{ logistia_db_app_password | default('logistia_pass') }}"

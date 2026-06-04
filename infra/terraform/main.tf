@@ -17,7 +17,7 @@ provider "proxmox" {
   ssh {
     agent    = false
     username = "root"
-    password = var.proxmox_ssh_password
+    private_key = file("~/.ssh/logistia_ed25519")
   }
 }
 
@@ -46,7 +46,7 @@ module "router_logistia" {
   gateway     = "192.168.10.254"
   ssh_key     = var.ssh_public_key
   userdata_id = proxmox_virtual_environment_file.logistia_cloudinit.id
-  extra_nets  = ["vmbr1", "vmbr2", "vmbr3", "vmbr4", "vmbr5", "vmbr6"]
+  extra_nets  = ["vmbr1", "vmbr2", "vmbr3", "vmbr4", "vmbr5", "vmbr6", "vmbr7"]
 }
 
 module "app_logistia" {

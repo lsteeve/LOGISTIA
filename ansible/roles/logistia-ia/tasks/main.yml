@@ -14,7 +14,7 @@
   args:
     creates: /usr/local/bin/ollama
 
-- name: Repertoire configuration Ollama LOGISTIA
+- name: Repertoire configuration Ollama
   file:
     path: /etc/systemd/system/ollama.service.d
     state: directory
@@ -34,7 +34,7 @@
     state: started
     daemon_reload: true
 
-- name: Installer scikit-learn pour Isolation Forest
+- name: Installer scikit-learn Isolation Forest
   pip:
     name:
       - scikit-learn
@@ -42,41 +42,41 @@
       - requests
     break_system_packages: true
 
-- name: Repertoire analyseur LOGISTIA
+- name: Repertoire logistia-scanner
   file:
     path: /opt/logistia-ia
     state: directory
     mode: '0755'
 
-- name: Script logistia-analyzer.py
+- name: Script logistia-scanner.py
   copy:
-    src: logistia-analyzer.py
-    dest: /opt/logistia-ia/logistia-analyzer.py
+    src: logistia-scanner.py
+    dest: /opt/logistia-ia/logistia-scanner.py
     mode: '0755'
 
-- name: Repertoire logs analyseur LOGISTIA
+- name: Repertoire logs logistia-scanner
   file:
     path: /var/log/logistia-ia
     state: directory
     mode: '0755'
 
-- name: Service systemd logistia-analyzer
+- name: Service systemd logistia-scanner
   copy:
-    dest: /etc/systemd/system/logistia-analyzer.service
+    dest: /etc/systemd/system/logistia-scanner.service
     content: |
       [Unit]
-      Description=LOGISTIA IA Log Analyzer
+      Description=LOGISTIA IA Scanner — detection anomalies securite
       After=ollama.service
 
       [Service]
       Type=oneshot
-      ExecStart=/usr/bin/python3 /opt/logistia-ia/logistia-analyzer.py
-      StandardOutput=append:/var/log/logistia-ia/logistia-analysis.log
-      StandardError=append:/var/log/logistia-ia/logistia-analysis.log
+      ExecStart=/usr/bin/python3 /opt/logistia-ia/logistia-scanner.py
+      StandardOutput=append:/var/log/logistia-ia/logistia-scanner.log
+      StandardError=append:/var/log/logistia-ia/logistia-scanner.log
 
-- name: Timer systemd logistia-analyzer toutes les 5 minutes
+- name: Timer systemd logistia-scanner toutes les 5 minutes
   copy:
-    dest: /etc/systemd/system/logistia-analyzer.timer
+    dest: /etc/systemd/system/logistia-scanner.timer
     content: |
       [Unit]
       Description=Analyse logs LOGISTIA toutes les 5 minutes
@@ -89,9 +89,9 @@
       [Install]
       WantedBy=timers.target
 
-- name: Activer timer logistia-analyzer
+- name: Activer timer logistia-scanner
   systemd:
-    name: logistia-analyzer.timer
+    name: logistia-scanner.timer
     enabled: true
     state: started
     daemon_reload: true

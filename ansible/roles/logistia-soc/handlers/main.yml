@@ -8,3 +8,8 @@
   service:
     name: prometheus
     state: restarted
+
+- name: restart wazuh-agent
+  service:
+    name: wazuh-agent
+    state: restarted

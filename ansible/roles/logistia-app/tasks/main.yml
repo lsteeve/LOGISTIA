@@ -1,5 +1,5 @@
 ---
-- name: Installer Docker et Nginx sur app-logistia
+- name: Installer Docker et Nginx
   apt:
     name:
       - docker.io
@@ -14,7 +14,7 @@
     enabled: true
     state: started
 
-- name: Repertoire application LOGISTIA
+- name: Repertoire application logistia-app
   file:
     path: /opt/logistia-app
     state: directory
@@ -52,13 +52,13 @@
       volumes:
         logistia-traccar-data:
 
-- name: Demarrer les services applicatifs LOGISTIA
+- name: Demarrer services applicatifs LOGISTIA
   community.docker.docker_compose_v2:
     project_src: /opt/logistia-app
     state: present
   ignore_errors: true
 
-- name: Certificat SSL auto-signe LOGISTIA
+- name: Certificat SSL auto-signe logistia-app
   command: >
     openssl req -x509 -nodes -days 365 -newkey rsa:2048
     -keyout /etc/ssl/private/logistia-app.key
@@ -67,7 +67,7 @@
   args:
     creates: /etc/ssl/certs/logistia-app.crt
 
-- name: Config Nginx reverse proxy HTTPS LOGISTIA
+- name: Config Nginx reverse proxy HTTPS logistia-app
   copy:
     dest: /etc/nginx/sites-available/logistia-app
     content: |

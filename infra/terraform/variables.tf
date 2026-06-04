@@ -1,26 +1,17 @@
 variable "proxmox_url" {
   description = "URL de l'API Proxmox"
   type        = string
-  default     = "https://192.168.10.150:8006"
 }
 
 variable "proxmox_user" {
-  description = "Compte Terraform Proxmox"
+  description = "Compte Terraform Proxmox — terraform-logistia@pve"
   type        = string
-  default     = "terraform-logistia@pve"
 }
 
 variable "proxmox_token" {
-  description = "Valeur du token API logistia-token"
+  description = "Valeur du token logistia-token"
   type        = string
   sensitive   = true
-}
-
-variable "proxmox_ssh_password" {
-  description = "Mot de passe SSH root Proxmox pour upload cloud-init"
-  type        = string
-  sensitive   = true
-  default     = ""
 }
 
 variable "proxmox_node" {
@@ -36,7 +27,7 @@ variable "proxmox_storage" {
 }
 
 variable "ssh_public_key" {
-  description = "Cle SSH publique logistia injectee par cloud-init"
+  description = "Cle publique logistia_ed25519 injectee par cloud-init"
   type        = string
   sensitive   = true
 }

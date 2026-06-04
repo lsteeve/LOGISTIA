@@ -6,8 +6,3 @@
   service:
     name: dnsmasq
     state: restarted
-
-- name: restart wireguard
-  service:
-    name: wg-quick@logistia-vpn
-    state: restarted

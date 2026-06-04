@@ -1,5 +1,5 @@
 #cloud-config
-# LOGISTIA — Configuration initiale Debian 13 (Trixie)
+# LOGISTIA — Configuration initiale Debian 13 Trixie
 
 package_update: true
 package_upgrade: false
@@ -39,5 +39,4 @@ runcmd:
 
 timezone: Europe/Paris
 ssh_pwauth: false
-
 final_message: "LOGISTIA — machine prete"

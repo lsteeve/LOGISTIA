@@ -4,8 +4,6 @@
     name:
       - nftables
       - dnsmasq
-      - wireguard
-      - wireguard-tools
       - iproute2
     state: present
 
@@ -31,36 +29,34 @@
       auto ens19
       iface ens19 inet static
           address 10.10.10.1/24
-          comment VLAN10-app-logistia
 
       auto ens20
       iface ens20 inet static
           address 10.20.20.1/24
-          comment VLAN20-db-logistia
 
       auto ens21
       iface ens21 inet static
           address 10.30.30.1/24
-          comment VLAN30-devops-logistia
 
       auto ens22
       iface ens22 inet static
           address 10.40.40.1/24
-          comment VLAN40-soc-logistia
 
       auto ens23
       iface ens23 inet static
           address 10.50.50.1/24
-          comment VLAN50-ia-logistia
 
       auto ens24
       iface ens24 inet static
           address 10.60.60.1/24
-          comment VLAN60-backup-logistia
+
+      auto ens25
+      iface ens25 inet static
+          address 10.70.70.1/24
 
 - name: Activer interfaces VLAN
   shell: |
-    for iface in ens19 ens20 ens21 ens22 ens23 ens24; do
+    for iface in ens19 ens20 ens21 ens22 ens23 ens24 ens25; do
       ip link set $iface up 2>/dev/null || true
     done
     ip addr add 10.10.10.1/24 dev ens19 2>/dev/null || true
@@ -69,6 +65,7 @@
     ip addr add 10.40.40.1/24 dev ens22 2>/dev/null || true
     ip addr add 10.50.50.1/24 dev ens23 2>/dev/null || true
     ip addr add 10.60.60.1/24 dev ens24 2>/dev/null || true
+    ip addr add 10.70.70.1/24 dev ens25 2>/dev/null || true
   changed_when: false
 
 - name: Regles nftables LOGISTIA
@@ -88,7 +85,6 @@
           ct state established,related accept
           iif lo accept
           tcp dport 22 accept
-          udp dport 51820 accept
           icmp type echo-request limit rate 10/second accept
         }
 
@@ -104,10 +100,16 @@
           # app-logistia vers db-logistia
           iif ens19 oif ens20 tcp dport 3306 accept
 
+          # VLAN70 Admin vers toutes machines SSH
+          iif ens25 tcp dport 22 accept
+
+          # VLAN70 Admin vers Proxmox
+          iif ens25 oif eth0 tcp dport 8006 accept
+
           # devops-logistia vers toutes machines SSH
           iif ens21 tcp dport 22 accept
 
-          # Toutes machines vers soc-logistia logs
+          # Toutes machines vers soc-logistia logs Wazuh et Syslog
           oif ens22 tcp dport { 514, 1514, 1515 } accept
 
           # soc-logistia vers toutes machines metriques
@@ -119,7 +121,7 @@
           # backup-logistia vers toutes machines rsync
           iif ens24 tcp dport 22 accept
 
-          # Toutes machines vers Internet mises a jour
+          # Toutes machines vers Internet mises a jour apt
           oif eth0 accept
         }
 
@@ -138,7 +140,8 @@
             10.30.30.0/24,
             10.40.40.0/24,
             10.50.50.0/24,
-            10.60.60.0/24
+            10.60.60.0/24,
+            10.70.70.0/24
           } oif eth0 masquerade
         }
       }
@@ -160,23 +163,3 @@
       server=1.1.1.1
   notify: restart dnsmasq
   ignore_errors: true
-
-- name: Repertoire WireGuard
-  file:
-    path: /etc/wireguard
-    state: directory
-    mode: '0700'
-
-- name: Config WireGuard acces distant equipe LOGISTIA
-  copy:
-    dest: /etc/wireguard/logistia-vpn.conf
-    mode: '0600'
-    content: |
-      [Interface]
-      PrivateKey = {{ logistia_wg_private_key | default('GENERER_AVEC_wg_genkey') }}
-      Address = 10.10.10.1/24
-      ListenPort = 51820
-
-      [Peer]
-      PublicKey = {{ logistia_wg_peer_admin | default('CLE_PUBLIQUE_ADMIN') }}
-      AllowedIPs = 10.10.10.2/32

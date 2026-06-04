@@ -26,6 +26,24 @@
     enabled: true
     state: started
 
+- name: Installer agent Wazuh sur soc-logistia
+  apt:
+    name: wazuh-agent
+    state: present
+
+- name: Configurer agent Wazuh soc-logistia vers Manager local
+  lineinfile:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '<address>.*</address>'
+    line: '<address>10.40.40.10</address>'
+  notify: restart wazuh-agent
+
+- name: Activer agent Wazuh soc-logistia
+  systemd:
+    name: wazuh-agent
+    enabled: true
+    state: started
+
 - name: Cle GPG Grafana
   shell: wget -q -O - https://packages.grafana.com/gpg.key | gpg --dearmor -o /usr/share/keyrings/grafana.gpg
   args:
@@ -86,13 +104,13 @@
             - targets: ['10.60.60.10:9100']
   notify: restart prometheus
 
-- name: Activer Prometheus avec config LOGISTIA
+- name: Activer Prometheus
   systemd:
     name: prometheus
     enabled: true
     state: started
 
-- name: Installer syslog-ng centralisation logs
+- name: Installer syslog-ng centralisation logs LOGISTIA
   apt:
     name: syslog-ng
     state: present
@@ -119,3 +137,74 @@
     name: syslog-ng
     enabled: true
     state: started
+
+- name: Installer agents Wazuh sur toutes les machines LOGISTIA
+  block:
+    - name: Cle GPG Wazuh sur machines distantes
+      shell: curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --dearmor -o /usr/share/keyrings/wazuh.gpg
+      args:
+        creates: /usr/share/keyrings/wazuh.gpg
+      delegate_to: "{{ item }}"
+      loop:
+        - router-logistia
+        - app-logistia
+        - db-logistia
+        - devops-logistia
+        - ia-logistia
+        - backup-logistia
+
+    - name: Depot Wazuh sur machines distantes
+      copy:
+        dest: /etc/apt/sources.list.d/wazuh.list
+        content: "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main\n"
+      delegate_to: "{{ item }}"
+      loop:
+        - router-logistia
+        - app-logistia
+        - db-logistia
+        - devops-logistia
+        - ia-logistia
+        - backup-logistia
+
+    - name: Installer agent Wazuh sur machines distantes
+      apt:
+        name: wazuh-agent
+        state: present
+        update_cache: true
+      delegate_to: "{{ item }}"
+      loop:
+        - router-logistia
+        - app-logistia
+        - db-logistia
+        - devops-logistia
+        - ia-logistia
+        - backup-logistia
+
+    - name: Configurer agent Wazuh vers soc-logistia
+      lineinfile:
+        path: /var/ossec/etc/ossec.conf
+        regexp: '<address>.*</address>'
+        line: '<address>10.40.40.10</address>'
+      delegate_to: "{{ item }}"
+      loop:
+        - router-logistia
+        - app-logistia
+        - db-logistia
+        - devops-logistia
+        - ia-logistia
+        - backup-logistia
+
+    - name: Activer agent Wazuh sur machines distantes
+      systemd:
+        name: wazuh-agent
+        enabled: true
+        state: started
+      delegate_to: "{{ item }}"
+      loop:
+        - router-logistia
+        - app-logistia
+        - db-logistia
+        - devops-logistia
+        - ia-logistia
+        - backup-logistia
+  ignore_errors: true
