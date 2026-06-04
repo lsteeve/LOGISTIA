@@ -5,14 +5,16 @@
       - nftables
       - dnsmasq
       - iproute2
+      - ifupdown
     state: present
+    update_cache: yes
 
 - name: IP forwarding
   sysctl:
     name: net.ipv4.ip_forward
     value: '1'
     state: present
-    reload: true
+    reload: yes
 
 - name: Interfaces VLAN permanentes
   copy:
@@ -46,17 +48,17 @@
       iface ens23 inet static
           address 10.50.50.1/24
 
-      auto ens24
-      iface ens24 inet static
+      auto ens1
+      iface ens1 inet static
           address 10.60.60.1/24
 
-      auto ens25
-      iface ens25 inet static
+      auto ens2
+      iface ens2 inet static
           address 10.70.70.1/24
 
 - name: Activer interfaces VLAN
   shell: |
-    for iface in ens19 ens20 ens21 ens22 ens23 ens24 ens25; do
+    for iface in ens19 ens20 ens21 ens22 ens23 ens1 ens2; do
       ip link set $iface up 2>/dev/null || true
     done
     ip addr add 10.10.10.1/24 dev ens19 2>/dev/null || true
@@ -64,8 +66,8 @@
     ip addr add 10.30.30.1/24 dev ens21 2>/dev/null || true
     ip addr add 10.40.40.1/24 dev ens22 2>/dev/null || true
     ip addr add 10.50.50.1/24 dev ens23 2>/dev/null || true
-    ip addr add 10.60.60.1/24 dev ens24 2>/dev/null || true
-    ip addr add 10.70.70.1/24 dev ens25 2>/dev/null || true
+    ip addr add 10.60.60.1/24 dev ens1 2>/dev/null || true
+    ip addr add 10.70.70.1/24 dev ens2 2>/dev/null || true
   changed_when: false
 
 - name: Regles nftables LOGISTIA
@@ -77,72 +79,45 @@
       flush ruleset
 
       table inet logistia-filter {
-
-        chain logistia-input {
+        chain input {
           type filter hook input priority 0
           policy drop
 
           ct state established,related accept
           iif lo accept
           tcp dport 22 accept
-          icmp type echo-request limit rate 10/second accept
+          icmp type echo-request limit rate 5/second accept
         }
 
-        chain logistia-forward {
+        chain forward {
           type filter hook forward priority 0
           policy drop
 
           ct state established,related accept
 
-          # Internet vers app-logistia DMZ
           iif eth0 oif ens19 tcp dport { 80, 443 } accept
-
-          # app-logistia vers db-logistia
-          iif ens19 oif ens20 tcp dport 3306 accept
-
-          # VLAN70 Admin vers toutes machines SSH
-          iif ens25 tcp dport 22 accept
-
-          # VLAN70 Admin vers Proxmox
-          iif ens25 oif eth0 tcp dport 8006 accept
-
-          # devops-logistia vers toutes machines SSH
+          iif ens19 oif ens20 ip daddr 10.20.20.10 tcp dport 3306 accept
           iif ens21 tcp dport 22 accept
-
-          # Toutes machines vers soc-logistia logs Wazuh et Syslog
           oif ens22 tcp dport { 514, 1514, 1515 } accept
-
-          # soc-logistia vers toutes machines metriques
+          oif ens22 udp dport 514 accept
           iif ens22 tcp dport 9100 accept
-
-          # ia-logistia vers soc-logistia OpenSearch
-          iif ens23 oif ens22 tcp dport 9200 accept
-
-          # backup-logistia vers toutes machines rsync
-          iif ens24 tcp dport 22 accept
-
-          # Toutes machines vers Internet mises a jour apt
-          oif eth0 accept
+          iif ens23 oif ens22 ip daddr 10.40.40.10 tcp dport 9200 accept
+          iif ens1 tcp dport 22 accept
+          iif ens2 tcp dport 22 accept
+          iif ens2 oif eth0 ip daddr 192.168.10.150 tcp dport 8006 accept
+          ip saddr { 10.10.10.0/24, 10.20.20.0/24, 10.30.30.0/24, 10.40.40.0/24, 10.50.50.0/24, 10.60.60.0/24, 10.70.70.0/24 } oif eth0 accept
         }
 
-        chain logistia-output {
+        chain output {
           type filter hook output priority 0
           policy accept
         }
       }
 
       table ip logistia-nat {
-        chain logistia-postrouting {
+        chain postrouting {
           type nat hook postrouting priority 100
-          ip saddr {
-            10.10.10.0/24,
-            10.20.20.0/24,
-            10.30.30.0/24,
-            10.40.40.0/24,
-            10.50.50.0/24,
-            10.60.60.0/24,
-            10.70.70.0/24
-          } oif eth0 masquerade
+          ip saddr { 10.10.10.0/24, 10.20.20.0/24, 10.30.30.0/24, 10.40.40.0/24, 10.50.50.0/24, 10.60.60.0/24, 10.70.70.0/24 } oif eth0 masquerade
         }
       }
   notify: reload nftables
@@ -150,16 +125,35 @@
 - name: Activer nftables
   systemd:
     name: nftables
-    enabled: true
+    enabled: yes
     state: started
 
-- name: Config dnsmasq DNS LOGISTIA
+- name: dnsmasq configuration
   copy:
     dest: /etc/dnsmasq.conf
     content: |
-      interface=lo
       bind-interfaces
+      interface=ens19
+      interface=ens20
+      interface=ens21
+      interface=ens22
+      interface=ens23
+      interface=ens1
+      interface=ens2
+      dhcp-range=10.10.10.100,10.10.10.200,12h
+      dhcp-range=10.20.20.100,10.20.20.200,12h
+      dhcp-range=10.30.30.100,10.30.30.200,12h
+      dhcp-range=10.40.40.100,10.40.40.200,12h
+      dhcp-range=10.50.50.100,10.50.50.200,12h
+      dhcp-range=10.60.60.100,10.60.60.200,12h
+      dhcp-range=10.70.70.100,10.70.70.200,12h
       server=8.8.8.8
       server=1.1.1.1
   notify: restart dnsmasq
-  ignore_errors: true
+
+- name: Activer dnsmasq
+  systemd:
+    name: dnsmasq
+    enabled: yes
+    state: started
+  ignore_errors: yes
