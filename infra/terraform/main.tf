@@ -150,3 +150,57 @@ module "backup_logistia" {
   userdata_id = proxmox_virtual_environment_file.logistia_cloudinit.id
   extra_nets  = []
 }
+
+module "misp_logistia" {
+  source      = "./modules/logistia-vm"
+  name        = "misp-logistia"
+  node_name   = var.proxmox_node
+  vmid        = var.vmid_start + 8
+  cores       = 3
+  memory      = 8192
+  disk_size   = 40
+  datastore   = var.proxmox_storage
+  bridge      = "vmbr4"
+  ip          = "10.40.40.20/24"
+  gateway     = "10.40.40.1"
+  cpu_type    = "host"
+  ssh_key     = var.ssh_public_key
+  userdata_id = proxmox_virtual_environment_file.logistia_cloudinit.id
+  extra_nets  = []
+}
+
+module "cortex_logistia" {
+  source      = "./modules/logistia-vm"
+  name        = "cortex-logistia"
+  node_name   = var.proxmox_node
+  vmid        = var.vmid_start + 9
+  cores       = 4
+  memory      = 8192
+  disk_size   = 40
+  datastore   = var.proxmox_storage
+  bridge      = "vmbr4"
+  ip          = "10.40.40.30/24"
+  gateway     = "10.40.40.1"
+  cpu_type    = "host"
+  ssh_key     = var.ssh_public_key
+  userdata_id = proxmox_virtual_environment_file.logistia_cloudinit.id
+  extra_nets  = []
+}
+
+module "thehive_logistia" {
+  source      = "./modules/logistia-vm"
+  name        = "thehive-logistia"
+  node_name   = var.proxmox_node
+  vmid        = var.vmid_start + 10
+  cores       = 4
+  memory      = 12288
+  disk_size   = 50
+  datastore   = var.proxmox_storage
+  bridge      = "vmbr4"
+  ip          = "10.40.40.40/24"
+  gateway     = "10.40.40.1"
+  cpu_type    = "host"
+  ssh_key     = var.ssh_public_key
+  userdata_id = proxmox_virtual_environment_file.logistia_cloudinit.id
+  extra_nets  = []
+}

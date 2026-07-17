@@ -4,6 +4,13 @@
 package_update: true
 package_upgrade: false
 
+# DNS force (evite l'heritage d'un mauvais resolveur au boot)
+manage_resolv_conf: true
+resolv_conf:
+  nameservers:
+    - 8.8.8.8
+    - 1.1.1.1
+
 packages:
   - qemu-guest-agent
   - curl
@@ -36,6 +43,9 @@ runcmd:
   - chmod 440 /etc/sudoers.d/logistia
   - systemctl enable ssh
   - systemctl start ssh
+  - mkdir -p /etc/systemd/resolved.conf.d
+  - printf '[Resolve]\nDNS=8.8.8.8 1.1.1.1\n' > /etc/systemd/resolved.conf.d/logistia.conf
+  - systemctl restart systemd-resolved || true
 
 timezone: Europe/Paris
 ssh_pwauth: false

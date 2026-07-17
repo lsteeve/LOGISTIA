@@ -27,3 +27,7 @@ variable "extra_nets" {
   type    = list(string)
   default = []
 }
+variable "cpu_type" {
+  type    = string
+  default = "x86-64-v2-AES"
+}

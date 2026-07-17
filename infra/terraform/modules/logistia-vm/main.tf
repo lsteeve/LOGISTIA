@@ -14,7 +14,7 @@ resource "proxmox_virtual_environment_vm" "logistia_vm" {
   cpu {
     cores   = var.cores
     sockets = 1
-    type    = "x86-64-v2-AES"
+    type    = var.cpu_type
   }
 
   memory {
