@@ -27,8 +27,7 @@
     url: https://packages.wazuh.com/4.14/wazuh-certs-tool.sh
     dest: /tmp/wazuh-certs-tool.sh
     mode: '0755'
-  args:
-    creates: /tmp/wazuh-certs-tool.sh
+    force: false
 
 - name: Generer le config.yml des certificats
   copy:
