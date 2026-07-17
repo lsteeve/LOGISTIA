@@ -1,0 +1,5 @@
+---
+- name: Redemarrer MISP
+  command: docker compose up -d --force-recreate
+  args:
+    chdir: /opt/logistia-misp

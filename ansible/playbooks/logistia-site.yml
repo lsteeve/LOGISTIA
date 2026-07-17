@@ -41,6 +41,11 @@
   roles:
     - logistia-soc
 
+- name: misp-logistia — CTI MISP via Docker
+  hosts: logistia-misp
+  become: true
+  roles:
+    - logistia-misp
 - name: ia-logistia — Ollama Mistral logistia-scanner
   hosts: logistia-ia
   become: true

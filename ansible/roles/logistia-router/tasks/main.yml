@@ -106,6 +106,15 @@
           iif ens2 tcp dport 22 accept
           iif ens2 oif eth0 ip daddr 192.168.10.150 tcp dport 8006 accept
           ip saddr { 10.10.10.0/24, 10.20.20.0/24, 10.30.30.0/24, 10.40.40.0/24, 10.50.50.0/24, 10.60.60.0/24, 10.70.70.0/24 } oif eth0 accept
+
+          # Acces VM admin (VLAN WAN 192.168.10.0/24) vers les VLAN internes
+          ip saddr 192.168.10.0/24 ip daddr 10.10.10.0/24 accept
+          ip saddr 192.168.10.0/24 ip daddr 10.20.20.0/24 accept
+          ip saddr 192.168.10.0/24 ip daddr 10.30.30.0/24 accept
+          ip saddr 192.168.10.0/24 ip daddr 10.40.40.0/24 accept
+          ip saddr 192.168.10.0/24 ip daddr 10.50.50.0/24 accept
+          ip saddr 192.168.10.0/24 ip daddr 10.60.60.0/24 accept
+          ip saddr 192.168.10.0/24 ip daddr 10.70.70.0/24 accept
         }
 
         chain output {

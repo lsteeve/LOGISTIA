@@ -1,0 +1,103 @@
+---
+- name: Installer dependances misp-logistia
+  apt:
+    name:
+      - docker.io
+      - docker-compose
+      - git
+      - curl
+      - jq
+    state: present
+    update_cache: true
+
+- name: Activer Docker
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Ajouter logistia au groupe docker
+  user:
+    name: logistia
+    groups: docker
+    append: true
+
+- name: Creer le repertoire /opt/logistia-misp
+  file:
+    path: /opt/logistia-misp
+    state: directory
+    owner: logistia
+    group: logistia
+    mode: '0755'
+
+- name: Cloner le depot officiel misp-docker
+  git:
+    repo: https://github.com/MISP/misp-docker.git
+    dest: /opt/logistia-misp
+    version: master
+    force: false
+  become_user: logistia
+
+- name: Initialiser le .env depuis le template officiel misp-docker
+  copy:
+    src: /opt/logistia-misp/template.env
+    dest: /opt/logistia-misp/.env
+    remote_src: true
+    owner: logistia
+    mode: '0640'
+    force: false
+
+- name: Surcharger les valeurs LOGISTIA dans le .env
+  lineinfile:
+    path: /opt/logistia-misp/.env
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+  loop:
+    - { key: "BASE_URL",       value: "https://{{ misp_ip }}" }
+    - { key: "ADMIN_EMAIL",    value: "{{ misp_admin_email }}" }
+    - { key: "ADMIN_ORG",      value: "{{ misp_admin_org }}" }
+    - { key: "ADMIN_PASSWORD", value: "{{ misp_admin_password }}" }
+  notify: Redemarrer MISP
+
+- name: Recuperer les images MISP (pull)
+  command: docker compose pull
+  args:
+    chdir: /opt/logistia-misp
+  register: misp_pull
+  changed_when: "'Pulled' in misp_pull.stdout or 'Downloaded' in misp_pull.stdout"
+
+- name: Demarrer la stack MISP
+  command: docker compose up -d
+  args:
+    chdir: /opt/logistia-misp
+  register: misp_up
+  changed_when: "'Started' in misp_up.stderr or 'Created' in misp_up.stderr"
+
+- name: Node Exporter metriques misp-logistia
+  apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Activer Node Exporter
+  systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started
+
+- name: Attendre que MISP reponde en HTTPS
+  uri:
+    url: "https://{{ misp_ip }}/users/login"
+    validate_certs: false
+    status_code: [200, 302]
+  register: misp_health
+  until: misp_health.status in [200, 302]
+  retries: 30
+  delay: 20
+  ignore_errors: true
+
+- name: Etat du deploiement MISP
+  debug:
+    msg: >
+      MISP deploye sur https://{{ misp_ip }} —
+      compte admin : {{ misp_admin_email }}
+      (voir ADMIN_PASSWORD dans /opt/logistia-misp/.env).

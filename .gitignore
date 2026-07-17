@@ -25,3 +25,8 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+ansible/group_vars/logistia-vault.yml
+
+# MISP / docker secrets
+.env
+*/.env
