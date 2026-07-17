@@ -1,0 +1,33 @@
+# Configuration TheHive LOGISTIA (genere par Ansible)
+db.janusgraph {
+  storage {
+    backend = cql
+    hostname = ["cassandra"]
+    cql { cluster-name = logistia, keyspace = thehive }
+  }
+  index.search {
+    backend = elasticsearch
+    hostname = ["elasticsearch"]
+    index-name = thehive
+  }
+}
+storage {
+  provider = s3
+  s3 {
+    bucket = "thehive"
+    endpoint = "http://minio:9000"
+    access-key = "{{ minio_root_user }}"
+    secret-key = "{{ minio_root_password }}"
+    region = "us-east-1"
+  }
+}
+play.http.secret.key = "{{ thehive_secret }}"
+cortex {
+  servers = [
+    {
+      name = "cortex-logistia"
+      url = "{{ cortex_url }}"
+      auth { type = "bearer", key = "{{ cortex_api_key }}" }
+    }
+  ]
+}

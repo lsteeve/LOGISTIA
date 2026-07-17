@@ -1,0 +1,116 @@
+---
+- name: Installer dependances thehive-logistia
+  apt:
+    name:
+      - docker.io
+      - docker-compose
+      - git
+      - curl
+      - jq
+    state: present
+    update_cache: true
+
+- name: Activer Docker
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Ajouter logistia au groupe docker
+  user:
+    name: logistia
+    groups: docker
+    append: true
+
+- name: Fix Elasticsearch - vm.max_map_count persistant
+  sysctl:
+    name: vm.max_map_count
+    value: '262144'
+    state: present
+    reload: true
+
+- name: Creer le repertoire /opt/logistia-thehive
+  file:
+    path: /opt/logistia-thehive
+    state: directory
+    owner: logistia
+    group: logistia
+    mode: '0755'
+
+- name: Generer un secret de session TheHive
+  shell: openssl rand -hex 32
+  register: thehive_secret_gen
+  args:
+    creates: /opt/logistia-thehive/.secret
+
+- name: Stocker le secret
+  copy:
+    content: "{{ thehive_secret_gen.stdout | default('logistia-thehive-default-secret') }}"
+    dest: /opt/logistia-thehive/.secret
+    owner: logistia
+    mode: '0600'
+  when: thehive_secret_gen.stdout is defined
+
+- name: Lire le secret existant
+  slurp:
+    src: /opt/logistia-thehive/.secret
+  register: thehive_secret_file
+
+- name: Definir la variable secret
+  set_fact:
+    thehive_secret: "{{ thehive_secret_file.content | b64decode | trim }}"
+
+- name: Deployer application.conf
+  template:
+    src: application.conf.j2
+    dest: /opt/logistia-thehive/application.conf
+    owner: logistia
+    mode: '0640'
+  notify: Redemarrer TheHive
+
+- name: Deployer docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/logistia-thehive/docker-compose.yml
+    owner: logistia
+    mode: '0640'
+  notify: Redemarrer TheHive
+
+- name: Recuperer les images (pull)
+  command: docker compose pull
+  args:
+    chdir: /opt/logistia-thehive
+  register: thehive_pull
+  changed_when: "'Pulled' in thehive_pull.stdout or 'Downloaded' in thehive_pull.stdout"
+
+- name: Demarrer la stack TheHive
+  command: docker compose up -d
+  args:
+    chdir: /opt/logistia-thehive
+  register: thehive_up
+  changed_when: "'Started' in thehive_up.stderr or 'Created' in thehive_up.stderr"
+
+- name: Node Exporter metriques thehive-logistia
+  apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Activer Node Exporter
+  systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started
+
+- name: Attendre que TheHive reponde (premier boot long - Cassandra + migration)
+  uri:
+    url: "http://{{ thehive_ip }}:9000/api/status"
+    status_code: [200]
+  register: thehive_health
+  until: thehive_health.status == 200
+  retries: 40
+  delay: 30
+  ignore_errors: true
+
+- name: Etat du deploiement TheHive
+  debug:
+    msg: "TheHive deploye sur http://{{ thehive_ip }}:9000 - health: {{ 'OK' if thehive_health.status is defined and thehive_health.status == 200 else 'en cours de demarrage (Cassandra peut prendre 5-10 min)' }}"

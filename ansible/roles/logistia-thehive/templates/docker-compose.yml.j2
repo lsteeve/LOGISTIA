@@ -1,0 +1,69 @@
+services:
+  cassandra:
+    image: cassandra:4.1
+    container_name: thehive-cassandra
+    restart: unless-stopped
+    environment:
+      - CASSANDRA_CLUSTER_NAME=logistia
+      - MAX_HEAP_SIZE=1024M
+      - HEAP_NEWSIZE=256M
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "nodetool status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+  elasticsearch:
+    image: elasticsearch:7.17.28
+    container_name: thehive-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms{{ thehive_es_mem }} -Xmx{{ thehive_es_mem }}"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-04-18T19-09-19Z
+    container_name: thehive-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9090"
+    environment:
+      - MINIO_ROOT_USER={{ minio_root_user }}
+      - MINIO_ROOT_PASSWORD={{ minio_root_password }}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9000/minio/health/live || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+  thehive:
+    image: strangebee/thehive:5.4.0
+    container_name: thehive
+    restart: unless-stopped
+    depends_on:
+      cassandra:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "0.0.0.0:9000:9000"
+    volumes:
+      - ./application.conf:/etc/thehive/application.conf
+    command: ["--no-config", "--config-file", "/etc/thehive/application.conf"]
+volumes:
+  cassandra_data:
+  es_data:
+  minio_data:
