@@ -1,0 +1,4 @@
+---
+# Variables du role logistia-cortex
+cortex_ip: "10.40.40.30"
+cortex_es_mem: "1g"

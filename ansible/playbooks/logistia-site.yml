@@ -46,6 +46,11 @@
   become: true
   roles:
     - logistia-misp
+- name: cortex-logistia — Cortex analyzers + Elasticsearch
+  hosts: logistia-cortex
+  become: true
+  roles:
+    - logistia-cortex
 - name: ia-logistia — Ollama Mistral logistia-scanner
   hosts: logistia-ia
   become: true

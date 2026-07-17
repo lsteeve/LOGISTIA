@@ -1,0 +1,17 @@
+# Configuration Cortex LOGISTIA (genere par Ansible)
+search {
+  index = cortex
+  uri = "http://elasticsearch:9200"
+}
+
+cache.job = 10 minutes
+
+analyzer {
+  urls = ["https://download.thehive-project.org/analyzers.json"]
+}
+responder {
+  urls = ["https://download.thehive-project.org/responders.json"]
+}
+
+# Secret de session (genere au deploiement)
+play.http.secret.key = "{{ cortex_secret }}"

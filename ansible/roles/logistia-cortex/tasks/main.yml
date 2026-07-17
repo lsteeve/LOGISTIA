@@ -1,0 +1,122 @@
+---
+- name: Installer dependances cortex-logistia
+  apt:
+    name:
+      - docker.io
+      - docker-compose
+      - git
+      - curl
+      - jq
+    state: present
+    update_cache: true
+
+- name: Activer Docker
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Ajouter logistia au groupe docker
+  user:
+    name: logistia
+    groups: docker
+    append: true
+
+- name: Fix Elasticsearch - vm.max_map_count persistant
+  sysctl:
+    name: vm.max_map_count
+    value: '262144'
+    state: present
+    reload: true
+
+- name: Creer le repertoire /opt/logistia-cortex
+  file:
+    path: /opt/logistia-cortex
+    state: directory
+    owner: logistia
+    group: logistia
+    mode: '0755'
+
+- name: Repertoire jobs Cortex
+  file:
+    path: /tmp/cortex-jobs
+    state: directory
+    mode: '0777'
+
+- name: Generer un secret de session Cortex
+  shell: openssl rand -hex 32
+  register: cortex_secret_gen
+  args:
+    creates: /opt/logistia-cortex/.secret
+
+- name: Stocker le secret
+  copy:
+    content: "{{ cortex_secret_gen.stdout | default('logistia-cortex-default-secret-change-me') }}"
+    dest: /opt/logistia-cortex/.secret
+    owner: logistia
+    mode: '0600'
+  when: cortex_secret_gen.stdout is defined
+
+- name: Lire le secret existant
+  slurp:
+    src: /opt/logistia-cortex/.secret
+  register: cortex_secret_file
+
+- name: Definir la variable secret
+  set_fact:
+    cortex_secret: "{{ cortex_secret_file.content | b64decode | trim }}"
+
+- name: Deployer application.conf
+  template:
+    src: application.conf.j2
+    dest: /opt/logistia-cortex/application.conf
+    owner: logistia
+    mode: '0640'
+  notify: Redemarrer Cortex
+
+- name: Deployer docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/logistia-cortex/docker-compose.yml
+    owner: logistia
+    mode: '0640'
+  notify: Redemarrer Cortex
+
+- name: Recuperer les images (pull)
+  command: docker compose pull
+  args:
+    chdir: /opt/logistia-cortex
+  register: cortex_pull
+  changed_when: "'Pulled' in cortex_pull.stdout or 'Downloaded' in cortex_pull.stdout"
+
+- name: Demarrer la stack Cortex
+  command: docker compose up -d
+  args:
+    chdir: /opt/logistia-cortex
+  register: cortex_up
+  changed_when: "'Started' in cortex_up.stderr or 'Created' in cortex_up.stderr"
+
+- name: Node Exporter metriques cortex-logistia
+  apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Activer Node Exporter
+  systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started
+
+- name: Attendre que Cortex reponde
+  uri:
+    url: "http://{{ cortex_ip }}:9001/api/status"
+    status_code: [200]
+  register: cortex_health
+  until: cortex_health.status == 200
+  retries: 30
+  delay: 20
+  ignore_errors: true
+
+- name: Etat du deploiement Cortex
+  debug:
+    msg: "Cortex deploye sur http://{{ cortex_ip }}:9001 - health: {{ 'OK' if cortex_health.status is defined and cortex_health.status == 200 else 'en cours de demarrage' }}"
