@@ -5,17 +5,23 @@
 *.tfstate.backup
 .terraform/
 .terraform.lock.hcl
-logistia-plan.tfplan
+*.tfplan
 
 # Ansible secrets
 group_vars/logistia-all.yml
 group_vars/logistia-vault.yml
+ansible/group_vars/logistia-vault.yml
 *.retry
 
 # Clés SSH
 logistia_ed25519
 logistia_ed25519.pub
 *.pem
+*.key
+
+# Secrets Docker / services
+.env
+*/.env
 
 # Python
 __pycache__/
@@ -25,8 +31,3 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
-ansible/group_vars/logistia-vault.yml
-
-# MISP / docker secrets
-.env
-*/.env

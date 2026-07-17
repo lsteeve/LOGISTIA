@@ -3,95 +3,93 @@ name: LOGISTIA Deploy
 on:
   workflow_dispatch:
     inputs:
-      terraform_action:
-        description: Action Terraform
+      action:
+        description: "Action a executer"
         required: true
-        default: plan
+        default: ansible_only
         type: choice
         options:
-          - plan
-          - apply
-      run_ansible:
-        description: Lancer Ansible apres Terraform
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "true"
-          - "false"
+          - full
+          - terraform_only
+          - ansible_only
 
 jobs:
-  logistia-deploy:
-    name: Deploiement infrastructure LOGISTIA
+  deploy:
+    name: Deploiement LOGISTIA
     runs-on: self-hosted
-
-    env:
-      TF_VAR_proxmox_url:      ${{ secrets.PROXMOX_URL }}
-      TF_VAR_proxmox_user:     ${{ secrets.PROXMOX_USER }}
-      TF_VAR_proxmox_token:    ${{ secrets.PROXMOX_PASSWORD }}
-      TF_VAR_ssh_public_key:   ${{ secrets.SSH_PUBLIC_KEY }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verification secrets
+      - name: Verification sauvegarde backup-logistia
+        if: ${{ inputs.action == 'full' || inputs.action == 'terraform_only' }}
         run: |
-          test -n "${{ secrets.PROXMOX_URL }}"            || (echo "PROXMOX_URL manquant" && exit 1)
-          test -n "${{ secrets.PROXMOX_USER }}"           || (echo "PROXMOX_USER manquant" && exit 1)
-          test -n "${{ secrets.PROXMOX_PASSWORD }}"       || (echo "PROXMOX_PASSWORD manquant" && exit 1)
-          test -n "${{ secrets.SSH_PUBLIC_KEY }}"         || (echo "SSH_PUBLIC_KEY manquant" && exit 1)
-          test -n "${{ secrets.ANSIBLE_PRIVATE_KEY }}"   || (echo "ANSIBLE_PRIVATE_KEY manquant" && exit 1)
-          test -n "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" || (echo "ANSIBLE_VAULT_PASSWORD manquant" && exit 1)
+          echo "Verification sauvegarde recente sur backup-logistia..."
+          BACKUP_COUNT=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/logistia_ed25519 logistia@10.60.60.10 \
+            "find /backup/logistia -maxdepth 1 -type d -mmin -180 2>/dev/null | wc -l" || echo "0")
+          echo "Sauvegardes recentes trouvees: $BACKUP_COUNT"
+          if [ "$BACKUP_COUNT" -eq "0" ]; then
+            echo "ERREUR: Aucune sauvegarde recente sur backup-logistia (moins de 3h)"
+            echo "Lancez d abord une sauvegarde manuelle :"
+            echo "  ssh logistia@10.60.60.10 sudo /opt/logistia-backup.sh"
+            echo "Puis relancez le pipeline."
+            exit 1
+          fi
+          echo "Sauvegarde recente confirmee - deploiement Terraform autorise"
 
-      - name: Preparation state Terraform
+      - name: Creer terraform.tfvars
+        if: ${{ inputs.action == 'full' || inputs.action == 'terraform_only' }}
         run: |
-          STATE="${LOGISTIA_STATE_PATH:-/srv/logistia/terraform/logistia.tfstate}"
-          mkdir -p "$(dirname $STATE)"
+          cat > infra/terraform/terraform.tfvars << TFEOF
+          proxmox_url     = "${{ secrets.PROXMOX_URL }}"
+          proxmox_user    = "${{ secrets.PROXMOX_USER }}"
+          proxmox_token   = "${{ secrets.PROXMOX_PASSWORD }}"
+          proxmox_node    = "PVE"
+          proxmox_storage = "local-lvm"
+          ssh_public_key  = "${{ secrets.SSH_PUBLIC_KEY }}"
+          vmid_start      = 100
+          TFEOF
 
       - name: Terraform init
-        run: |
-          STATE="${LOGISTIA_STATE_PATH:-/srv/logistia/terraform/logistia.tfstate}"
-          terraform init -input=false -backend-config="path=$STATE"
-        working-directory: infra/terraform
-
-      - name: Terraform plan
-        run: terraform plan -input=false -out=logistia-plan.tfplan
-        working-directory: infra/terraform
+        if: ${{ inputs.action == 'full' || inputs.action == 'terraform_only' }}
+        run: cd infra/terraform && terraform init
 
       - name: Terraform apply
-        if: ${{ github.event.inputs.terraform_action == 'apply' }}
-        run: terraform apply -auto-approve logistia-plan.tfplan
-        working-directory: infra/terraform
+        if: ${{ inputs.action == 'full' || inputs.action == 'terraform_only' }}
+        run: cd infra/terraform && terraform plan -out=logistia-plan.tfplan && terraform apply logistia-plan.tfplan
 
-      - name: Attente demarrage machines cloud-init
-        if: ${{ github.event.inputs.run_ansible == 'true' && github.event.inputs.terraform_action == 'apply' }}
+      - name: Attente cloud-init
+        if: ${{ inputs.action == 'full' }}
         run: sleep 90
 
-      - name: Preparation cle SSH Ansible
-        if: ${{ github.event.inputs.run_ansible == 'true' }}
+      - name: Preparer cle SSH
+        if: ${{ inputs.action == 'full' || inputs.action == 'ansible_only' }}
         run: |
-          echo "${{ secrets.ANSIBLE_PRIVATE_KEY }}" > /tmp/logistia_ed25519
-          chmod 600 /tmp/logistia_ed25519
+          mkdir -p ~/.ssh
+          echo "${{ secrets.ANSIBLE_PRIVATE_KEY }}" > ~/.ssh/logistia_ed25519
+          chmod 600 ~/.ssh/logistia_ed25519
 
-      - name: Preparation Ansible Vault
-        if: ${{ github.event.inputs.run_ansible == 'true' }}
+      - name: Preparer vault Ansible
+        if: ${{ inputs.action == 'full' || inputs.action == 'ansible_only' }}
         run: |
-          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/logistia-vault-pass
-          chmod 600 /tmp/logistia-vault-pass
-          cp ansible/group_vars/logistia-all.yml.example ansible/group_vars/logistia-all.yml
-          cp ansible/group_vars/logistia-vault.yml.example ansible/group_vars/logistia-vault.yml
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > /tmp/.logistia-vault-pass
+          chmod 600 /tmp/.logistia-vault-pass
 
-      - name: Deploiement Ansible LOGISTIA
-        if: ${{ github.event.inputs.run_ansible == 'true' }}
+      - name: Ansible deploy
+        if: ${{ inputs.action == 'full' || inputs.action == 'ansible_only' }}
         run: |
+          ANSIBLE_ROLES_PATH=$GITHUB_WORKSPACE/ansible/roles \
           ansible-playbook \
-            -i logistia-inventory.ini \
-            playbooks/logistia-site.yml \
-            --private-key /tmp/logistia_ed25519 \
-            --vault-password-file /tmp/logistia-vault-pass
-        working-directory: ansible
-        timeout-minutes: 45
+            -i ansible/logistia-inventory.ini \
+            ansible/playbooks/logistia-site.yml \
+            --vault-password-file /tmp/.logistia-vault-pass \
+            --private-key ~/.ssh/logistia_ed25519 \
+            -v
 
-      - name: Nettoyage fichiers temporaires
+      - name: Nettoyage fichiers sensibles
         if: always()
-        run: rm -f /tmp/logistia_ed25519 /tmp/logistia-vault-pass
+        run: |
+          rm -f infra/terraform/terraform.tfvars
+          rm -f infra/terraform/logistia-plan.tfplan
+          rm -f /tmp/.logistia-vault-pass
+          rm -f ~/.ssh/logistia_ed25519
