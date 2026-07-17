@@ -1,0 +1,291 @@
+---
+# ============================================================================
+# LOGISTIA — Stack Wazuh complete (indexer + filebeat + dashboard)
+# Importe par logistia-soc/tasks/main.yml
+# Reproduit l'installation manuelle validee : Wazuh 4.14.x single-node
+# Cible : soc-logistia (10.40.40.10)
+# ============================================================================
+
+# ---------- Variables locales ----------
+- name: Definir les variables Wazuh
+  set_fact:
+    wazuh_ip: "10.40.40.10"
+    wazuh_certs_src: /tmp/wazuh-certificates
+
+# ============================================================================
+# 1. INDEXER (OpenSearch)
+# ============================================================================
+- name: Installer wazuh-indexer
+  apt:
+    name: wazuh-indexer
+    state: present
+    update_cache: true
+
+# ---------- Generation des certificats (idempotent) ----------
+- name: Telecharger l'outil de certificats Wazuh
+  get_url:
+    url: https://packages.wazuh.com/4.14/wazuh-certs-tool.sh
+    dest: /tmp/wazuh-certs-tool.sh
+    mode: '0755'
+  args:
+    creates: /tmp/wazuh-certs-tool.sh
+
+- name: Generer le config.yml des certificats
+  copy:
+    dest: /tmp/config.yml
+    content: |
+      nodes:
+        indexer:
+          - name: node-1
+            ip: {{ wazuh_ip }}
+        server:
+          - name: wazuh-1
+            ip: {{ wazuh_ip }}
+        dashboard:
+          - name: dashboard
+            ip: {{ wazuh_ip }}
+    mode: '0644'
+
+- name: Generer les certificats (une seule fois)
+  command: bash /tmp/wazuh-certs-tool.sh -A
+  args:
+    chdir: /tmp
+    creates: /tmp/wazuh-certificates/root-ca.pem
+
+# ---------- Distribuer les certifs a l'indexer ----------
+- name: Creer le repertoire certs de l'indexer
+  file:
+    path: /etc/wazuh-indexer/certs
+    state: directory
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    mode: '0500'
+
+- name: Copier les certificats de l'indexer
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: true
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    mode: '0400'
+  loop:
+    - { src: "/tmp/wazuh-certificates/node-1.pem",     dest: "/etc/wazuh-indexer/certs/indexer.pem" }
+    - { src: "/tmp/wazuh-certificates/node-1-key.pem", dest: "/etc/wazuh-indexer/certs/indexer-key.pem" }
+    - { src: "/tmp/wazuh-certificates/root-ca.pem",    dest: "/etc/wazuh-indexer/certs/root-ca.pem" }
+    - { src: "/tmp/wazuh-certificates/admin.pem",      dest: "/etc/wazuh-indexer/certs/admin.pem" }
+    - { src: "/tmp/wazuh-certificates/admin-key.pem",  dest: "/etc/wazuh-indexer/certs/admin-key.pem" }
+
+# ---------- Configuration opensearch.yml ----------
+- name: Configurer opensearch.yml
+  copy:
+    dest: /etc/wazuh-indexer/opensearch.yml
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    mode: '0640'
+    content: |
+      network.host: "{{ wazuh_ip }}"
+      node.name: "node-1"
+      cluster.initial_master_nodes:
+      - "node-1"
+      cluster.name: "wazuh-cluster"
+      node.max_local_storage_nodes: "3"
+      path.data: /var/lib/wazuh-indexer
+      path.logs: /var/log/wazuh-indexer
+      plugins.security.ssl.http.pemcert_filepath: /etc/wazuh-indexer/certs/indexer.pem
+      plugins.security.ssl.http.pemkey_filepath: /etc/wazuh-indexer/certs/indexer-key.pem
+      plugins.security.ssl.http.pemtrustedcas_filepath: /etc/wazuh-indexer/certs/root-ca.pem
+      plugins.security.ssl.transport.pemcert_filepath: /etc/wazuh-indexer/certs/indexer.pem
+      plugins.security.ssl.transport.pemkey_filepath: /etc/wazuh-indexer/certs/indexer-key.pem
+      plugins.security.ssl.transport.pemtrustedcas_filepath: /etc/wazuh-indexer/certs/root-ca.pem
+      plugins.security.ssl.http.enabled: true
+      plugins.security.ssl.transport.enforce_hostname_verification: false
+      plugins.security.ssl.transport.resolve_hostname: false
+      plugins.security.authcz.admin_dn:
+      - "CN=admin,OU=Wazuh,O=Wazuh,L=California,C=US"
+      plugins.security.check_snapshot_restore_write_privileges: true
+      plugins.security.enable_snapshot_restore_privilege: true
+      plugins.security.nodes_dn:
+      - "CN=node-1,OU=Wazuh,O=Wazuh,L=California,C=US"
+      plugins.security.restapi.roles_enabled:
+      - "all_access"
+      - "security_rest_api_access"
+      plugins.security.system_indices.enabled: true
+      plugins.security.system_indices.indices: [".plugins-ml-model", ".plugins-ml-task", ".opendistro-alerting-config", ".opendistro-alerting-alert*", ".opendistro-anomaly-results*", ".opendistro-anomaly-detector*", ".opendistro-anomaly-checkpoints", ".opendistro-anomaly-detection-state", ".opendistro-reports-*", ".opensearch-notifications-*", ".opensearch-notebooks", ".opensearch-observability", ".opendistro-asynchronous-search-response*", ".replication-metadata-store"]
+
+- name: Ajuster le heap JVM de l'indexer a 2g
+  lineinfile:
+    path: /etc/wazuh-indexer/jvm.options
+    regexp: "{{ item.re }}"
+    line: "{{ item.line }}"
+  loop:
+    - { re: '^-Xms', line: '-Xms2g' }
+    - { re: '^-Xmx', line: '-Xmx2g' }
+
+- name: Activer et demarrer wazuh-indexer
+  systemd:
+    name: wazuh-indexer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Attendre que l'indexer ecoute sur 9200
+  wait_for:
+    host: "{{ wazuh_ip }}"
+    port: 9200
+    timeout: 120
+
+- name: Initialiser la securite OpenSearch (une seule fois)
+  command: bash /usr/share/wazuh-indexer/bin/indexer-security-init.sh
+  args:
+    creates: /etc/wazuh-indexer/.security-initialized
+  register: sec_init
+
+- name: Marquer la securite comme initialisee
+  file:
+    path: /etc/wazuh-indexer/.security-initialized
+    state: touch
+    mode: '0644'
+  when: sec_init is changed
+
+# ============================================================================
+# 2. FILEBEAT (manager -> indexer)
+# ============================================================================
+- name: Installer filebeat
+  apt:
+    name: filebeat
+    state: present
+
+- name: Telecharger la config filebeat officielle Wazuh
+  get_url:
+    url: https://packages.wazuh.com/4.14/tpl/wazuh/filebeat/filebeat.yml
+    dest: /etc/filebeat/filebeat.yml
+    mode: '0644'
+    force: true
+
+- name: Definir l'IP de l'indexer dans filebeat.yml
+  replace:
+    path: /etc/filebeat/filebeat.yml
+    regexp: '^(\s*hosts:).*'
+    replace: '\1 ["{{ wazuh_ip }}:9200"]'
+
+- name: Telecharger le template Wazuh pour filebeat
+  get_url:
+    url: https://raw.githubusercontent.com/wazuh/wazuh/v4.14.6/extensions/elasticsearch/7.x/wazuh-template.json
+    dest: /etc/filebeat/wazuh-template.json
+    mode: '0644'
+
+- name: Installer le module wazuh pour filebeat
+  unarchive:
+    src: https://packages.wazuh.com/4.x/filebeat/wazuh-filebeat-0.4.tar.gz
+    dest: /usr/share/filebeat/module
+    remote_src: true
+    creates: /usr/share/filebeat/module/wazuh
+
+- name: Creer le repertoire certs de filebeat
+  file:
+    path: /etc/filebeat/certs
+    state: directory
+    owner: root
+    group: root
+    mode: '0500'
+
+- name: Copier les certificats de filebeat
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0400'
+  loop:
+    - { src: "/tmp/wazuh-certificates/wazuh-1.pem",     dest: "/etc/filebeat/certs/filebeat.pem" }
+    - { src: "/tmp/wazuh-certificates/wazuh-1-key.pem", dest: "/etc/filebeat/certs/filebeat-key.pem" }
+    - { src: "/tmp/wazuh-certificates/root-ca.pem",     dest: "/etc/filebeat/certs/root-ca.pem" }
+
+- name: Configurer le keystore filebeat (username)
+  shell: echo admin | filebeat keystore add username --stdin --force
+  args:
+    creates: /var/lib/filebeat/filebeat.keystore
+
+- name: Configurer le keystore filebeat (password)
+  shell: echo admin | filebeat keystore add password --stdin --force
+  changed_when: false
+
+- name: Activer et demarrer filebeat
+  systemd:
+    name: filebeat
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# ============================================================================
+# 3. DASHBOARD (interface web)
+# ============================================================================
+- name: Installer wazuh-dashboard
+  apt:
+    name: wazuh-dashboard
+    state: present
+
+- name: Creer le repertoire certs du dashboard
+  file:
+    path: /etc/wazuh-dashboard/certs
+    state: directory
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    mode: '0500'
+
+- name: Copier les certificats du dashboard
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: true
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    mode: '0400'
+  loop:
+    - { src: "/tmp/wazuh-certificates/dashboard.pem",     dest: "/etc/wazuh-dashboard/certs/dashboard.pem" }
+    - { src: "/tmp/wazuh-certificates/dashboard-key.pem", dest: "/etc/wazuh-dashboard/certs/dashboard-key.pem" }
+    - { src: "/tmp/wazuh-certificates/root-ca.pem",       dest: "/etc/wazuh-dashboard/certs/root-ca.pem" }
+
+- name: Configurer opensearch_dashboards.yml
+  copy:
+    dest: /etc/wazuh-dashboard/opensearch_dashboards.yml
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    mode: '0640'
+    content: |
+      server.host: 0.0.0.0
+      server.port: 443
+      opensearch.hosts: https://{{ wazuh_ip }}:9200
+      opensearch.ssl.verificationMode: certificate
+      opensearch.username: kibanaserver
+      opensearch.password: kibanaserver
+      opensearch.requestHeadersWhitelist: ["securitytenant","Authorization"]
+      server.ssl.enabled: true
+      server.ssl.key: /etc/wazuh-dashboard/certs/dashboard-key.pem
+      server.ssl.certificate: /etc/wazuh-dashboard/certs/dashboard.pem
+      opensearch.ssl.certificateAuthorities: ["/etc/wazuh-dashboard/certs/root-ca.pem"]
+      uiSettings.overrides.defaultRoute: /app/wz-home
+
+- name: Activer et demarrer wazuh-dashboard
+  systemd:
+    name: wazuh-dashboard
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Attendre que le dashboard reponde en HTTPS
+  uri:
+    url: "https://{{ wazuh_ip }}/app/login"
+    validate_certs: false
+    status_code: [200, 302]
+  register: wazuh_dash_health
+  until: wazuh_dash_health.status in [200, 302]
+  retries: 20
+  delay: 15
+  ignore_errors: true
+
+- name: Etat de la stack Wazuh
+  debug:
+    msg: "Wazuh stack deployee — dashboard https://{{ wazuh_ip }} (admin/admin) — indexer 9200 — filebeat manager->indexer"

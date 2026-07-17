@@ -208,3 +208,6 @@
         - ia-logistia
         - backup-logistia
   ignore_errors: true
+
+# Stack Wazuh complete (indexer + filebeat + dashboard)
+- import_tasks: wazuh-stack.yml
