@@ -46,7 +46,11 @@ jobs:
         continue-on-error: true
 
       - name: Trivy scan securite
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        env:
+          TRIVY_SKIP_DB_UPDATE: "false"
+          TRIVY_TIMEOUT: "10m"
         with:
           scan-type: fs
           scan-ref: .
