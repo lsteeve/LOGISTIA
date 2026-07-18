@@ -68,6 +68,12 @@
   roles:
     - logistia-backup
 
+- name: Agents Wazuh (toutes les VM sauf le manager SOC)
+  hosts: logistia-apps:logistia-databases:logistia-devops:logistia-ia:logistia-backup:logistia-misp:logistia-cortex:logistia-thehive:logistia-routers
+  become: true
+  serial: 1
+  roles:
+    - logistia-wazuh-agent
 - name: Verification finale infrastructure LOGISTIA
   hosts: all
   become: true

@@ -1,0 +1,63 @@
+---
+# ============================================================================
+# LOGISTIA — Agent Wazuh
+# Installe l'agent, le configure vers le manager, l'enregistre via authd (1515)
+# Applique a toutes les VM SAUF soc-logistia (le manager)
+# ============================================================================
+
+- name: Cle GPG Wazuh
+  shell: curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --dearmor -o /usr/share/keyrings/wazuh.gpg
+  args:
+    creates: /usr/share/keyrings/wazuh.gpg
+
+- name: Depot Wazuh
+  copy:
+    dest: /etc/apt/sources.list.d/wazuh.list
+    content: "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main\n"
+    mode: '0644'
+
+- name: Installer wazuh-agent
+  apt:
+    name: wazuh-agent
+    state: present
+    update_cache: true
+
+- name: Configurer l'adresse du manager dans ossec.conf
+  replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '<address>[^<]*</address>'
+    replace: '<address>{{ wazuh_manager_ip }}</address>'
+
+- name: Arreter l'agent avant enregistrement (evite l'auto-enrollment concurrent)
+  systemd:
+    name: wazuh-agent
+    state: stopped
+  failed_when: false
+
+- name: Verifier si l'agent possede deja une cle valide
+  stat:
+    path: /var/ossec/etc/client.keys
+  register: client_keys
+
+- name: Lire la taille de client.keys
+  stat:
+    path: /var/ossec/etc/client.keys
+  register: keys_stat
+
+- name: Enregistrer l'agent aupres du manager (authd 1515)
+  command: >
+    /var/ossec/bin/agent-auth -m {{ wazuh_manager_ip }} -A {{ inventory_hostname }}
+  when: not keys_stat.stat.exists or keys_stat.stat.size == 0
+  register: agent_auth
+  changed_when: "'Valid key' in agent_auth.stdout"
+
+- name: Demarrer et activer wazuh-agent
+  systemd:
+    name: wazuh-agent
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Etat de l'agent
+  debug:
+    msg: "Agent Wazuh {{ inventory_hostname }} configure vers le manager {{ wazuh_manager_ip }}"

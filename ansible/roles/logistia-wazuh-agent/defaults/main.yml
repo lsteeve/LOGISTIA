@@ -1,0 +1,5 @@
+---
+# Rôle logistia-wazuh-agent
+# Installe et enregistre un agent Wazuh pointant vers le manager LOGISTIA
+wazuh_manager_ip: "10.40.40.10"
+wazuh_agent_group: "default"
