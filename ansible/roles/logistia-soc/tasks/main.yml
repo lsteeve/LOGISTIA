@@ -124,3 +124,6 @@
 
 # Integration Wazuh -> TheHive
 - import_tasks: w2thive-integration.yml
+
+# Brique IA analyse de logs (scanner sur soc)
+- import_tasks: ia-scanner.yml

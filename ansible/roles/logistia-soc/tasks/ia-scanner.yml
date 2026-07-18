@@ -1,0 +1,73 @@
+---
+# ============================================================================
+# LOGISTIA — Brique IA d'analyse de logs (cote soc-logistia)
+# Le scanner tourne SUR soc (acces local aux logs Wazuh) et appelle le
+# moteur IA Ollama/phi3 sur ia-logistia (10.50.50.10:11434).
+# Importe par logistia-soc/tasks/main.yml
+# ============================================================================
+
+- name: Installer les dependances Python de l'analyse IA
+  pip:
+    name:
+      - scikit-learn
+      - numpy
+      - requests
+    break_system_packages: true
+
+- name: Repertoire du scanner IA
+  file:
+    path: /opt/logistia-ia
+    state: directory
+    mode: '0755'
+
+- name: Repertoire des logs et rapports IA
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /var/log/logistia-ia
+    - /var/log/logistia-ia/rapports
+
+- name: Deployer le scanner IA (analyse logs Wazuh + Isolation Forest + Ollama)
+  copy:
+    src: logistia-scanner.py
+    dest: /opt/logistia-ia/logistia-scanner.py
+    mode: '0755'
+
+- name: Service systemd du scanner IA
+  copy:
+    dest: /etc/systemd/system/logistia-scanner.service
+    content: |
+      [Unit]
+      Description=LOGISTIA IA Scanner - analyse des logs et detection d'anomalies
+      After=wazuh-manager.service
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/python3 /opt/logistia-ia/logistia-scanner.py
+      StandardOutput=append:/var/log/logistia-ia/logistia-scanner.log
+      StandardError=append:/var/log/logistia-ia/logistia-scanner.log
+
+- name: Timer systemd du scanner IA (toutes les 10 minutes)
+  copy:
+    dest: /etc/systemd/system/logistia-scanner.timer
+    content: |
+      [Unit]
+      Description=Analyse IA des logs LOGISTIA toutes les 10 minutes
+      [Timer]
+      OnBootSec=5min
+      OnUnitActiveSec=10m
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+
+- name: Activer le timer du scanner IA
+  systemd:
+    name: logistia-scanner.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Etat brique IA
+  debug:
+    msg: "Brique IA deployee sur soc : scanner + Isolation Forest, moteur Ollama sur 10.50.50.10"

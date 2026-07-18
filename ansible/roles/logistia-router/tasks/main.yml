@@ -102,6 +102,7 @@
           oif ens22 udp dport 514 accept
           iif ens22 tcp dport 9100 accept
           iif ens23 oif ens22 ip daddr 10.40.40.10 tcp dport 9200 accept
+          iif ens22 oif ens23 ip daddr 10.50.50.10 tcp dport 11434 accept
           iif ens1 tcp dport 22 accept
           iif ens2 tcp dport 22 accept
           iif ens2 oif eth0 ip daddr 192.168.10.150 tcp dport 8006 accept

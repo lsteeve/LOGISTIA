@@ -34,67 +34,17 @@
     state: started
     daemon_reload: true
 
-- name: Installer scikit-learn Isolation Forest
-  pip:
-    name:
-      - scikit-learn
-      - numpy
-      - requests
-    break_system_packages: true
 
-- name: Repertoire logistia-scanner
-  file:
-    path: /opt/logistia-ia
-    state: directory
-    mode: '0755'
-
-- name: Script logistia-scanner.py
-  copy:
-    src: logistia-scanner.py
-    dest: /opt/logistia-ia/logistia-scanner.py
-    mode: '0755'
-
-- name: Repertoire logs logistia-scanner
-  file:
-    path: /var/log/logistia-ia
-    state: directory
-    mode: '0755'
-
-- name: Service systemd logistia-scanner
-  copy:
-    dest: /etc/systemd/system/logistia-scanner.service
-    content: |
-      [Unit]
-      Description=LOGISTIA IA Scanner — detection anomalies securite
-      After=ollama.service
-
-      [Service]
-      Type=oneshot
-      ExecStart=/usr/bin/python3 /opt/logistia-ia/logistia-scanner.py
-      StandardOutput=append:/var/log/logistia-ia/logistia-scanner.log
-      StandardError=append:/var/log/logistia-ia/logistia-scanner.log
-
-- name: Timer systemd logistia-scanner toutes les 5 minutes
-  copy:
-    dest: /etc/systemd/system/logistia-scanner.timer
-    content: |
-      [Unit]
-      Description=Analyse logs LOGISTIA toutes les 5 minutes
-
-      [Timer]
-      OnBootSec=2min
-      OnUnitActiveSec=5m
-      Persistent=true
-
-      [Install]
-      WantedBy=timers.target
-
-- name: Activer timer logistia-scanner
-  systemd:
-    name: logistia-scanner.timer
-    enabled: true
-    state: started
-    daemon_reload: true
+- name: Telecharger le modele phi3:mini (moteur d'analyse IA)
+  command: ollama pull phi3:mini
+  args:
+    creates: /usr/share/ollama/.ollama/models/manifests/registry.ollama.ai/library/phi3
+  environment:
+    OLLAMA_HOST: "127.0.0.1:11434"
+  register: ollama_pull
+  retries: 2
+  delay: 10
+  until: ollama_pull.rc == 0
 
 - name: Node Exporter metriques soc-logistia
   apt:
