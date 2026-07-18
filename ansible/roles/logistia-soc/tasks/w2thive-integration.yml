@@ -1,0 +1,52 @@
+---
+# ============================================================================
+# LOGISTIA — Integration Wazuh -> TheHive
+# Importe par logistia-soc/tasks/main.yml (apres wazuh-stack.yml)
+# Deploie le script custom-w2thive + config ossec.conf
+# ============================================================================
+
+- name: Definir les variables integration TheHive
+  set_fact:
+    thehive_url: "http://10.40.40.40:9000"
+    thehive_api_key: "{{ logistia_thehive_api_key | default('LZyayWcH71j18cyAwFirCQqM+WeCqs15') }}"
+
+- name: Installer thehive4py dans le Python de Wazuh
+  command: /var/ossec/framework/python/bin/python3 -m pip install 'thehive4py==1.8.1'
+  args:
+    creates: /var/ossec/framework/python/lib/python3.10/site-packages/thehive4py
+
+- name: Deployer le script custom-w2thive.py
+  template:
+    src: custom-w2thive.py.j2
+    dest: /var/ossec/integrations/custom-w2thive.py
+    owner: root
+    group: wazuh
+    mode: '0755'
+  notify: restart wazuh-manager
+
+- name: Deployer le wrapper custom-w2thive
+  template:
+    src: custom-w2thive.j2
+    dest: /var/ossec/integrations/custom-w2thive
+    owner: root
+    group: wazuh
+    mode: '0755'
+  notify: restart wazuh-manager
+
+- name: Ajouter le bloc integration dans ossec.conf
+  blockinfile:
+    path: /var/ossec/etc/ossec.conf
+    marker: "  <!-- {mark} LOGISTIA w2thive -->"
+    insertbefore: "</ossec_config>"
+    block: |
+      <integration>
+        <name>custom-w2thive</name>
+        <hook_url>{{ thehive_url }}</hook_url>
+        <api_key>{{ thehive_api_key }}</api_key>
+        <alert_format>json</alert_format>
+      </integration>
+  notify: restart wazuh-manager
+
+- name: Etat integration Wazuh -> TheHive
+  debug:
+    msg: "Integration Wazuh -> TheHive deployee (hook {{ thehive_url }}, seuil niveau 7)"

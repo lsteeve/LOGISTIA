@@ -193,3 +193,6 @@
 
 # Stack Wazuh complete (indexer + filebeat + dashboard)
 - import_tasks: wazuh-stack.yml
+
+# Integration Wazuh -> TheHive
+- import_tasks: w2thive-integration.yml

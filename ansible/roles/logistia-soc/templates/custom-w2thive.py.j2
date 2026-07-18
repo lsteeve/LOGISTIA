@@ -1,0 +1,120 @@
+#!/var/ossec/framework/python/bin/python3
+# -*- coding: utf-8 -*-
+# ============================================================================
+# LOGISTIA — Integration Wazuh -> TheHive
+# Convertit les alertes Wazuh (niveau >= lvl_threshold) en alertes TheHive.
+# Depose dans /var/ossec/integrations/custom-w2thive.py
+# ============================================================================
+import sys
+import os
+import json
+import traceback
+
+try:
+    from thehive4py.api import TheHiveApi
+    from thehive4py.models import Alert, AlertArtifact
+except Exception as e:
+    # thehive4py absent ou mauvaise version : on logue et on sort proprement
+    with open('/var/ossec/logs/integrations.log', 'a') as f:
+        f.write("w2thive: import thehive4py failed: %s\n" % str(e))
+    sys.exit(1)
+
+# ---------- Configuration LOGISTIA ----------
+lvl_threshold = 7          # niveau minimal d'alerte Wazuh transmis a TheHive
+debug_enabled = False      # passer a True pour tracer dans integrations.log
+
+# ---------- Journalisation ----------
+LOG_FILE = '/var/ossec/logs/integrations.log'
+
+def log(msg):
+    with open(LOG_FILE, 'a') as f:
+        f.write("w2thive: %s\n" % msg)
+
+def debug(msg):
+    if debug_enabled:
+        log("DEBUG: %s" % msg)
+
+
+def main(args):
+    debug("start args=%s" % str(args))
+
+    # args: [script, alert_file, api_key, hook_url, ...]
+    alert_file = args[1]
+    api_key = args[2]
+    hook_url = args[3]
+
+    # Charger l'alerte Wazuh (JSON)
+    with open(alert_file, errors='ignore') as f:
+        alert = json.load(f)
+    debug("alert loaded")
+
+    # Filtrage par niveau
+    rule = alert.get('rule', {})
+    level = int(rule.get('level', 0))
+    if level < lvl_threshold:
+        debug("level %d < threshold %d, skip" % (level, lvl_threshold))
+        return
+
+    # Connexion TheHive
+    api = TheHiveApi(hook_url, api_key, cert=False)
+
+    # Construire l'alerte TheHive
+    rule_id = rule.get('id', 'N/A')
+    description = rule.get('description', 'Alerte Wazuh')
+    agent = alert.get('agent', {})
+    agent_name = agent.get('name', 'inconnu')
+    agent_ip = agent.get('ip', 'N/A')
+
+    # Tags utiles
+    tags = ['wazuh', 'LOGISTIA', 'level=%d' % level, 'rule=%s' % rule_id]
+    for g in rule.get('groups', []):
+        tags.append(g)
+
+    # Severite TheHive : 1=low 2=medium 3=high
+    if level >= 12:
+        severity = 3
+    elif level >= 9:
+        severity = 2
+    else:
+        severity = 1
+
+    # Artefacts observables (IP source/dest si presents)
+    artifacts = []
+    data = alert.get('data', {})
+    src_ip = data.get('srcip')
+    dst_ip = data.get('dstip')
+    if src_ip:
+        artifacts.append(AlertArtifact(dataType='ip', data=src_ip, message='srcip'))
+    if dst_ip:
+        artifacts.append(AlertArtifact(dataType='ip', data=dst_ip, message='dstip'))
+
+    sourceRef = "wazuh-%s-%s" % (agent_name, alert.get('id', rule_id))
+
+    thehive_alert = Alert(
+        title='[Wazuh] %s' % description,
+        tlp=2,
+        severity=severity,
+        tags=tags,
+        description="**Agent** : %s (%s)\n\n**Regle** : %s (niveau %d)\n\n**Description** : %s\n\n```\n%s\n```" % (
+            agent_name, agent_ip, rule_id, level, description,
+            json.dumps(alert, indent=2)[:3000]
+        ),
+        type='wazuh_alert',
+        source='Wazuh-LOGISTIA',
+        sourceRef=sourceRef,
+        artifacts=artifacts,
+    )
+
+    response = api.create_alert(thehive_alert)
+    if response.status_code in (200, 201):
+        log("OK alerte creee dans TheHive (rule %s level %d agent %s)" % (rule_id, level, agent_name))
+    else:
+        log("ERREUR TheHive HTTP %d : %s" % (response.status_code, response.text[:300]))
+
+
+if __name__ == "__main__":
+    try:
+        main(sys.argv)
+    except Exception:
+        log("EXCEPTION: %s" % traceback.format_exc())
+        sys.exit(1)
