@@ -1,0 +1,17 @@
+<!--
+  LOGISTIA - Decodeurs personnalises
+  Depose dans /var/ossec/etc/decoders/logistia_decoders.xml
+
+  Format de log attendu (journal applicatif) :
+  logistia-net: outbound connection to 185.220.101.5 port 443 from app-logistia
+-->
+
+<decoder name="logistia-net">
+  <prematch>^logistia-net: </prematch>
+</decoder>
+
+<decoder name="logistia-net-conn">
+  <parent>logistia-net</parent>
+  <regex>outbound connection to (\d+.\d+.\d+.\d+) port (\d+) from (\S+)</regex>
+  <order>dstip, dstport, hostname</order>
+</decoder>

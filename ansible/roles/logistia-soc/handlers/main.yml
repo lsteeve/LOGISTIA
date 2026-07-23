@@ -13,3 +13,9 @@
   service:
     name: wazuh-agent
     state: restarted
+
+- name: restart wazuh-manager
+  systemd:
+    name: wazuh-manager
+    state: restarted
+  failed_when: false

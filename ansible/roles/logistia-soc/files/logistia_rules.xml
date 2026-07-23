@@ -1,0 +1,69 @@
+<!--
+  LOGISTIA - Regles de detection personnalisees
+  Deposees dans /var/ossec/etc/rules/logistia_rules.xml
+  Plage d'ID reservee aux regles locales : 100000-120000
+-->
+<group name="logistia,attack,">
+
+  <!-- ============================================================
+       1. Force brute SSH
+       ============================================================ -->
+  <rule id="100101" level="10" frequency="5" timeframe="120">
+    <if_matched_sid>5710</if_matched_sid>
+    <same_source_ip />
+    <description>LOGISTIA: Force brute SSH detectee (5 echecs en 120s) depuis $(srcip)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>authentication_failures,pci_dss_11.4,gdpr_IV_35.7.d,</group>
+  </rule>
+
+  <!-- ============================================================
+       2. Tentative d'authentification depuis une IP referencee MISP
+          (correlation CTI -> detection)
+       ============================================================ -->
+  <rule id="100102" level="12">
+    <if_group>authentication_failed</if_group>
+    <list field="srcip" lookup="address_match_key">etc/lists/logistia-malicious-ips</list>
+    <description>LOGISTIA: Authentification echouee depuis une IP malveillante connue (MISP) - $(srcip)</description>
+    <mitre>
+      <id>T1110</id>
+      <id>T1078</id>
+    </mitre>
+    <group>logistia_cti,pci_dss_11.4,</group>
+  </rule>
+
+  <!-- ============================================================
+       3. Connexion sortante vers une IP de Command & Control
+          Detectee via le journal applicatif (decodeur logistia-net)
+       ============================================================ -->
+  <rule id="100110" level="7">
+    <decoded_as>logistia-net</decoded_as>
+    <description>LOGISTIA: Evenement reseau applicatif</description>
+  </rule>
+
+  <rule id="100111" level="13">
+    <if_sid>100110</if_sid>
+    <list field="dstip" lookup="address_match_key">etc/lists/logistia-malicious-ips</list>
+    <description>LOGISTIA: Connexion sortante vers une IP C2 malveillante (MISP) - $(dstip)</description>
+    <mitre>
+      <id>T1071</id>
+      <id>T1571</id>
+    </mitre>
+    <group>logistia_cti,logistia_c2,</group>
+  </rule>
+
+  <!-- ============================================================
+       4. Escalade : plusieurs contacts C2 = compromission probable
+       ============================================================ -->
+  <rule id="100112" level="14" frequency="3" timeframe="300">
+    <if_matched_sid>100111</if_matched_sid>
+    <same_source_ip />
+    <description>LOGISTIA: Balise C2 repetee - hote probablement compromis</description>
+    <mitre>
+      <id>T1071</id>
+    </mitre>
+    <group>logistia_c2,</group>
+  </rule>
+
+</group>

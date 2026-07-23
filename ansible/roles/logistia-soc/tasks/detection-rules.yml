@@ -1,0 +1,96 @@
+---
+# ============================================================================
+# LOGISTIA - Regles de detection Wazuh + correlation CTI (MISP)
+# Importe par logistia-soc/tasks/main.yml
+# ============================================================================
+
+- name: Deployer les decodeurs personnalises LOGISTIA
+  copy:
+    src: logistia_decoders.xml
+    dest: /var/ossec/etc/decoders/logistia_decoders.xml
+    owner: root
+    group: wazuh
+    mode: '0640'
+  notify: restart wazuh-manager
+
+- name: Deployer les regles de detection LOGISTIA
+  copy:
+    src: logistia_rules.xml
+    dest: /var/ossec/etc/rules/logistia_rules.xml
+    owner: root
+    group: wazuh
+    mode: '0640'
+  notify: restart wazuh-manager
+
+- name: Deployer la liste CDB des IOC (IP malveillantes)
+  copy:
+    src: logistia-malicious-ips
+    dest: /var/ossec/etc/lists/logistia-malicious-ips
+    owner: root
+    group: wazuh
+    mode: '0640'
+    force: false
+  notify: restart wazuh-manager
+
+- name: Declarer la liste CDB dans ossec.conf
+  blockinfile:
+    path: /var/ossec/etc/ossec.conf
+    marker: "  <!-- {mark} LOGISTIA cdb -->"
+    insertafter: "<ruleset>"
+    block: |
+      <list>etc/lists/logistia-malicious-ips</list>
+  notify: restart wazuh-manager
+
+- name: Compiler la liste CDB
+  shell: |
+    if [ -x /var/ossec/bin/wazuh-makelists ]; then
+      /var/ossec/bin/wazuh-makelists
+    elif [ -x /var/ossec/bin/ossec-makelists ]; then
+      /var/ossec/bin/ossec-makelists
+    fi
+  changed_when: false
+
+- name: Deployer le script de synchronisation MISP -> Wazuh
+  copy:
+    src: logistia-misp-sync.py
+    dest: /opt/logistia-ia/logistia-misp-sync.py
+    mode: '0755'
+
+- name: Service systemd de synchronisation MISP
+  copy:
+    dest: /etc/systemd/system/logistia-misp-sync.service
+    content: |
+      [Unit]
+      Description=LOGISTIA - Synchronisation des IOC MISP vers Wazuh
+      After=wazuh-manager.service
+      [Service]
+      Type=oneshot
+      Environment=LOGISTIA_MISP_URL=https://10.40.40.20
+      Environment=LOGISTIA_MISP_KEY={{ logistia_misp_authkey | default('') }}
+      ExecStart=/usr/bin/python3 /opt/logistia-ia/logistia-misp-sync.py
+      StandardOutput=append:/var/log/logistia-ia/misp-sync.log
+      StandardError=append:/var/log/logistia-ia/misp-sync.log
+
+- name: Timer de synchronisation MISP (toutes les heures)
+  copy:
+    dest: /etc/systemd/system/logistia-misp-sync.timer
+    content: |
+      [Unit]
+      Description=Synchronisation horaire des IOC MISP
+      [Timer]
+      OnBootSec=10min
+      OnUnitActiveSec=1h
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+
+- name: Activer le timer de synchronisation MISP
+  systemd:
+    name: logistia-misp-sync.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Etat detection
+  debug:
+    msg: "Regles de detection LOGISTIA deployees (brute-force, CTI MISP, C2)"

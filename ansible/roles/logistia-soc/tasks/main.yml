@@ -133,3 +133,6 @@
 
 # Brique IA analyse de logs (scanner sur soc)
 - import_tasks: ia-scanner.yml
+
+# Regles de detection + correlation CTI MISP
+- import_tasks: detection-rules.yml
