@@ -6,3 +6,11 @@
   service:
     name: dnsmasq
     state: restarted
+
+- name: reload sysctl
+  command: sysctl --system
+  changed_when: false
+
+- name: reload systemd
+  systemd:
+    daemon_reload: true

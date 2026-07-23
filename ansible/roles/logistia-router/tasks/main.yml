@@ -70,6 +70,28 @@
     ip addr add 10.70.70.1/24 dev ens2 2>/dev/null || true
   changed_when: false
 
+- name: Forwarding IPv4 persistant (fichier prioritaire sysctl.d)
+  copy:
+    dest: /etc/sysctl.d/99-logistia-router.conf
+    content: "net.ipv4.ip_forward=1\n"
+    mode: '0644'
+  notify: reload sysctl
+
+- name: Repertoire drop-in systemd pour nftables
+  file:
+    path: /etc/systemd/system/nftables.service.d
+    state: directory
+    mode: '0755'
+
+- name: Forcer le forwarding apres chargement nftables
+  copy:
+    dest: /etc/systemd/system/nftables.service.d/logistia-forward.conf
+    content: |
+      [Service]
+      ExecStartPost=/usr/sbin/sysctl -w net.ipv4.ip_forward=1
+    mode: '0644'
+  notify: reload systemd
+
 - name: Regles nftables LOGISTIA
   copy:
     dest: /etc/nftables.conf
