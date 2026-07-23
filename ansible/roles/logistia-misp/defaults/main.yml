@@ -3,6 +3,6 @@
 misp_ip: "10.40.40.20"
 misp_admin_email: "admin@logistia.net"
 misp_admin_org: "LOGISTIA"
-misp_admin_password:   "{{ logistia_misp_admin_password | default('LogistiaAdmin2024!') }}"
+misp_admin_password:   "{{ logistia_misp_admin_password | default('CHANGE_ME') }}"
 misp_db_password:      "{{ logistia_misp_db_password | default('LogistiaMISP2024!') }}"
 misp_db_root_password: "{{ logistia_misp_db_root_password | default('LogistiaMISProot2024!') }}"

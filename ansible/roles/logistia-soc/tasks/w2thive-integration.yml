@@ -8,7 +8,7 @@
 - name: Definir les variables integration TheHive
   set_fact:
     thehive_url: "http://10.40.40.40:9000"
-    thehive_api_key: "{{ logistia_thehive_api_key | default('LZyayWcH71j18cyAwFirCQqM+WeCqs15') }}"
+    thehive_api_key: "{{ logistia_thehive_api_key | default('CHANGE_ME') }}"
 
 - name: Installer thehive4py dans le Python de Wazuh
   command: /var/ossec/framework/python/bin/python3 -m pip install 'thehive4py==1.8.1'

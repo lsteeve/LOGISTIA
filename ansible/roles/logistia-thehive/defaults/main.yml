@@ -2,6 +2,6 @@
 thehive_ip: "10.40.40.40"
 thehive_es_mem: "1g"
 cortex_url: "http://10.40.40.30:9001"
-cortex_api_key: "Rjan03BUnyktjHh/Sus+Bm5epyttwHPz"
+cortex_api_key: "{{ logistia_cortex_api_key | default('CHANGE_ME') }}"
 minio_root_user: "logistia-minio"
-minio_root_password: "LogistiaMinio2024!"
+minio_root_password: "{{ logistia_minio_password | default('CHANGE_ME') }}"

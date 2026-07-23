@@ -69,6 +69,15 @@ jobs:
           echo "${{ secrets.ANSIBLE_PRIVATE_KEY }}" > ~/.ssh/logistia_ed25519
           chmod 600 ~/.ssh/logistia_ed25519
 
+      - name: Generer les variables sensibles Ansible
+        if: ${{ inputs.action == 'full' || inputs.action == 'ansible_only' }}
+        run: |
+          mkdir -p ansible/group_vars
+          cat > ansible/group_vars/logistia-vault.yml << 'VEOF'
+          ${{ secrets.ANSIBLE_VAULT_VARS }}
+          VEOF
+          chmod 600 ansible/group_vars/logistia-vault.yml
+
       - name: Ansible deploy
         if: ${{ inputs.action == 'full' || inputs.action == 'ansible_only' }}
         run: |
@@ -86,3 +95,4 @@ jobs:
           rm -f infra/terraform/terraform.tfvars
           rm -f infra/terraform/logistia-plan.tfplan
           rm -f ~/.ssh/logistia_ed25519
+          rm -f ansible/group_vars/logistia-vault.yml
