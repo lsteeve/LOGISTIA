@@ -73,10 +73,10 @@ jobs:
         if: ${{ inputs.action == 'full' || inputs.action == 'ansible_only' }}
         run: |
           mkdir -p ansible/group_vars
-          cat > ansible/group_vars/logistia-vault.yml << 'VEOF'
+          cat > ansible/group_vars/all.yml << 'VEOF'
           ${{ secrets.ANSIBLE_VAULT_VARS }}
           VEOF
-          chmod 600 ansible/group_vars/logistia-vault.yml
+          chmod 600 ansible/group_vars/all.yml
 
       - name: Ansible deploy
         if: ${{ inputs.action == 'full' || inputs.action == 'ansible_only' }}
@@ -95,4 +95,4 @@ jobs:
           rm -f infra/terraform/terraform.tfvars
           rm -f infra/terraform/logistia-plan.tfplan
           rm -f ~/.ssh/logistia_ed25519
-          rm -f ansible/group_vars/logistia-vault.yml
+          rm -f ansible/group_vars/all.yml

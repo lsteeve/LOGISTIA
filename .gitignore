@@ -31,3 +31,5 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+ansible/group_vars/all.yml
+group_vars/all.yml
