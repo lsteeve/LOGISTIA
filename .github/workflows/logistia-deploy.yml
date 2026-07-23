@@ -75,6 +75,7 @@ jobs:
           ANSIBLE_ROLES_PATH=$GITHUB_WORKSPACE/ansible/roles \
           ansible-playbook \
             -i ansible/logistia-inventory.ini \
+            --limit '!devops-logistia:!router-logistia' \
             ansible/playbooks/logistia-site.yml \
             --private-key ~/.ssh/logistia_ed25519 \
             -v
