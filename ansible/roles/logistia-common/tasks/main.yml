@@ -1,4 +1,9 @@
 ---
+- name: Reparer un dpkg interrompu (idempotent)
+  command: dpkg --configure -a
+  changed_when: false
+  failed_when: false
+
 - name: Mise a jour apt
   apt:
     update_cache: yes
