@@ -36,6 +36,12 @@
     dest: /etc/apt/sources.list.d/grafana.list
     content: "deb [signed-by=/usr/share/keyrings/grafana.gpg] https://packages.grafana.com/oss/deb stable main\n"
 
+- name: Contourner le bug d'upgrade Grafana (plugins-bundled non vide)
+  file:
+    path: /var/lib/grafana/plugins-bundled
+    state: absent
+  failed_when: false
+
 - name: Installer Grafana
   apt:
     name: grafana
