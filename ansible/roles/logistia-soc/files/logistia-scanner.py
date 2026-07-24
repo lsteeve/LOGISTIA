@@ -75,23 +75,43 @@ def lire_alertes():
     return alertes
 
 
+SEUIL_CRITIQUE = 10   # au-dela, une alerte est toujours analysee (attaque averee)
+
+
 def detecter_anomalies(alertes):
-    """Isolation Forest sur (niveau, frequence IP source, rule_id)."""
-    if len(alertes) < 5:
-        log("Trop peu d'alertes pour l'analyse ML (< 5), passage direct.")
-        # On renvoie quand meme les alertes de haut niveau
-        return sorted([a for a in alertes if a["level"] >= 10],
-                      key=lambda x: x["level"], reverse=True)
-    ips = Counter(a["src_ip"] for a in alertes if a["src_ip"])
-    X = np.array([
-        [a["level"], ips.get(a["src_ip"], 0), a["rule_id"]]
-        for a in alertes
-    ])
-    model = IsolationForest(contamination=0.15, random_state=42)
-    preds = model.fit_predict(X)
-    anomalies = [alertes[i] for i, p in enumerate(preds) if p == -1]
-    # Trier par niveau decroissant (les plus critiques d'abord)
-    return sorted(anomalies, key=lambda x: x["level"], reverse=True)
+    """Selection hybride des incidents a analyser :
+    1) toutes les alertes CRITIQUES (niveau >= SEUIL_CRITIQUE) - securite d'abord ;
+    2) complete par les anomalies statistiques (Isolation Forest) sur le reste.
+    Les doublons exacts d'une meme regle sont dedupliques pour eviter le bruit.
+    """
+    def dedup(liste):
+        vus, uniques = set(), []
+        for a in liste:
+            cle = (a["rule_id"], a["src_ip"])
+            if cle not in vus:
+                vus.add(cle)
+                uniques.append(a)
+        return uniques
+
+    # 1) Alertes critiques : priorite absolue
+    critiques = [a for a in alertes if a["level"] >= SEUIL_CRITIQUE]
+
+    # 2) Anomalies statistiques sur les alertes non critiques
+    non_critiques = [a for a in alertes if a["level"] < SEUIL_CRITIQUE]
+    anomalies_ml = []
+    if len(non_critiques) >= 5:
+        ips = Counter(a["src_ip"] for a in non_critiques if a["src_ip"])
+        X = np.array([
+            [a["level"], ips.get(a["src_ip"], 0), a["rule_id"]]
+            for a in non_critiques
+        ])
+        model = IsolationForest(contamination=0.15, random_state=42)
+        preds = model.fit_predict(X)
+        anomalies_ml = [non_critiques[i] for i, p in enumerate(preds) if p == -1]
+
+    # Fusion : critiques d'abord (tries par niveau), puis anomalies ML
+    resultat = dedup(critiques) + dedup(anomalies_ml)
+    return sorted(resultat, key=lambda x: x["level"], reverse=True)
 
 
 def expliquer_ia(a):

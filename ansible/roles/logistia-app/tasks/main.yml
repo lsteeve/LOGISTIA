@@ -121,3 +121,6 @@
     name: prometheus-node-exporter
     enabled: true
     state: started
+
+# Journal reseau applicatif + scenario d attaque (demo)
+- import_tasks: attack-sim.yml

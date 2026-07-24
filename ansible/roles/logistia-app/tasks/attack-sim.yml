@@ -1,0 +1,52 @@
+---
+# ============================================================================
+# LOGISTIA - Journal reseau applicatif + scenario d'attaque (cote app)
+#
+# 1. Cree le journal applicatif /var/log/logistia-net.log et le fait surveiller
+#    par l'agent Wazuh -> alimente les regles de detection C2 (100111/100112).
+# 2. Depose le script de scenario d'attaque (outil de demonstration).
+#    IMPORTANT : le script n'est JAMAIS execute par Ansible, seulement depose.
+#
+# Importe par logistia-app/tasks/main.yml
+# ============================================================================
+
+- name: Creer le journal reseau applicatif LOGISTIA
+  file:
+    path: /var/log/logistia-net.log
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+  # touch est non-idempotent : on evite un 'changed' a chaque run
+  changed_when: false
+
+- name: Faire surveiller le journal reseau par l'agent Wazuh
+  blockinfile:
+    path: /var/ossec/etc/ossec.conf
+    marker: "  <!-- {mark} LOGISTIA netlog -->"
+    insertbefore: "</ossec_config>"
+    block: |
+      <localfile>
+        <log_format>syslog</log_format>
+        <location>/var/log/logistia-net.log</location>
+      </localfile>
+  notify: restart wazuh-agent
+
+- name: Repertoire des outils de demonstration
+  file:
+    path: /opt/logistia-demo
+    state: directory
+    mode: '0755'
+
+- name: Deposer le script de scenario d'attaque (outil de demo, non execute)
+  copy:
+    src: logistia-attack-sim.sh
+    dest: /opt/logistia-demo/logistia-attack-sim.sh
+    mode: '0755'
+
+- name: Note d'information sur le scenario d'attaque
+  debug:
+    msg: >
+      Scenario d'attaque disponible sur app-logistia :
+      /opt/logistia-demo/logistia-attack-sim.sh [c2|bruteforce|full].
+      A lancer manuellement pour la demonstration.
