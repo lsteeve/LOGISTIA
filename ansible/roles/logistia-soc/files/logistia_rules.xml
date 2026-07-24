@@ -15,7 +15,7 @@
     <mitre>
       <id>T1110</id>
     </mitre>
-    <group>authentication_failures,pci_dss_11.4,gdpr_IV_35.7.d,</group>
+    <group>authentication_failures,logistia_cti,pci_dss_11.4,gdpr_IV_35.7.d,</group>
   </rule>
 
   <!-- ============================================================

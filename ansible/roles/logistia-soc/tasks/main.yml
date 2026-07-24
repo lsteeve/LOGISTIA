@@ -136,3 +136,6 @@
 
 # Regles de detection + correlation CTI MISP
 - import_tasks: detection-rules.yml
+
+# Active Response - blocage auto des IP malveillantes (SOAR)
+- import_tasks: active-response.yml

@@ -1,0 +1,30 @@
+---
+# ============================================================================
+# LOGISTIA - Active Response Wazuh (le "R" de SOAR)
+#
+# Lie les regles de detection CTI/C2 (groupe logistia_cti) a la commande
+# firewall-drop : lorsqu'une connexion vers une IP malveillante connue est
+# detectee, Wazuh bloque automatiquement l'IP via le pare-feu de l'agent.
+#
+# Importe par logistia-soc/tasks/main.yml (execute sur le manager).
+# ============================================================================
+
+- name: Configurer l'Active Response LOGISTIA (blocage auto CTI)
+  blockinfile:
+    path: /var/ossec/etc/ossec.conf
+    marker: "  <!-- {mark} LOGISTIA active-response -->"
+    insertbefore: "</ossec_config>"
+    block: |
+      <active-response>
+        <command>firewall-drop</command>
+        <location>local</location>
+        <rules_group>logistia_cti</rules_group>
+        <timeout>600</timeout>
+      </active-response>
+  notify: restart wazuh-manager
+
+- name: Etat Active Response
+  debug:
+    msg: >
+      Active Response actif : les regles du groupe logistia_cti declenchent
+      firewall-drop (blocage de l'IP 600s) sur l'agent concerne.
