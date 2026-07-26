@@ -22,6 +22,21 @@
     update_cache: true
 
 # ---------- Generation des certificats (idempotent) ----------
+
+- name: Repertoire override systemd wazuh-indexer
+  file:
+    path: /etc/systemd/system/wazuh-indexer.service.d
+    state: directory
+    mode: '0755'
+
+- name: Augmenter le timeout de demarrage de wazuh-indexer
+  copy:
+    dest: /etc/systemd/system/wazuh-indexer.service.d/timeout.conf
+    content: |
+      [Service]
+      TimeoutStartSec=600
+    mode: '0644'
+
 - name: Telecharger l'outil de certificats Wazuh
   get_url:
     url: https://packages.wazuh.com/4.14/wazuh-certs-tool.sh
