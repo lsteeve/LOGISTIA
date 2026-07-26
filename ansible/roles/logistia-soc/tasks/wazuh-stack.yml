@@ -307,3 +307,20 @@
 - name: Etat de la stack Wazuh
   debug:
     msg: "Wazuh stack deployee — dashboard https://{{ wazuh_ip }} (admin/admin) — indexer 9200 — filebeat manager->indexer"
+
+- name: Activer le mode compatibilite OpenSearch (filebeat 7.x -> indexer 2.x)
+  uri:
+    url: "https://10.40.40.10:9200/_cluster/settings"
+    method: PUT
+    user: admin
+    password: admin
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      persistent:
+        compatibility.override_main_response_version: true
+    status_code: [200, 201]
+  failed_when: false
+  retries: 5
+  delay: 15
