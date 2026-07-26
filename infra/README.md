@@ -1,26 +1,49 @@
-# Infrastructure LOGISTIA
+# Dossier `infra/` — création des machines avec Terraform
 
-Ce dossier contient la partie Infrastructure as Code du projet.
+Ce dossier contient la description de l'infrastructure au format **Terraform**. Terraform est l'outil qui **crée les machines virtuelles** sur Proxmox, à partir d'une description écrite. C'est la première étape du déploiement, avant la configuration par Ansible.
+
+## Rôle de Terraform vs Ansible
+
+Les deux outils sont complémentaires et interviennent l'un après l'autre :
+
+| Outil | Rôle | Ce qu'il fait |
+|-------|------|---------------|
+| **Terraform** | Crée l'infrastructure | Clone le template, crée les 10 machines, configure leur réseau (VLAN), leur mémoire, leurs disques, et injecte la clé SSH |
+| **Ansible** | Configure l'infrastructure | Installe et configure les logiciels sur les machines une fois créées |
+
+En résumé : **Terraform fabrique les machines, Ansible les habille.**
 
 ## Organisation
 
-`terraform/` crée les sept machines virtuelles LOGISTIA sur Proxmox et configure le réseau initial via cloud-init.
+```text
+infra/terraform/
+├── main.tf                    # Description des 10 machines
+├── variables.tf               # Variables (adresse Proxmox, identifiants…)
+├── terraform.tfvars.example   # Modèle de configuration (à copier)
+└── modules/
+    └── logistia-vm/           # Module réutilisable de création d'une VM
+```
 
-Ansible, dans le dossier `ansible/` à la racine, prend le relais une fois les machines démarrées pour installer et configurer les services applicatifs.
+## Le module de création de VM
 
-## Pourquoi séparer Terraform et Ansible
+Plutôt que de décrire dix fois une machine, LOGISTIA utilise un **module** : un modèle paramétrable de machine virtuelle. Le fichier `main.tf` appelle ce module dix fois, une par machine, en changeant seulement les paramètres (nom, IP, VLAN, mémoire, disque).
 
-Terraform parle à l'API Proxmox. Il crée, modifie ou supprime des machines virtuelles. Il ne configure pas ce qui tourne à l'intérieur.
+Cela rend la description **courte, cohérente et facile à faire évoluer** : pour ajouter une machine, il suffit d'un nouvel appel au module.
 
-Ansible parle en SSH aux machines. Il installe des paquets, écrit des fichiers de configuration et démarre des services. Il ne crée pas de machines.
+## Utilisation
 
-Cette séparation des responsabilités rend chaque outil plus simple à comprendre et à maintenir.
+```bash
+cd infra/terraform
+cp terraform.tfvars.example terraform.tfvars
+# renseigner : adresse Proxmox, identifiant et jeton d'API, clé SSH publique
 
-## Enchaînement du déploiement LOGISTIA
+terraform init      # télécharge le nécessaire
+terraform plan      # montre ce qui va être créé (sans rien créer)
+terraform apply     # crée réellement les machines
+```
 
-1. Terraform contacte l'API Proxmox avec le token `logistia-token`
-2. Terraform clone le template Debian 13 pour chacune des sept machines
-3. `logistia-cloudinit.yaml` installe les paquets de base et crée l'utilisateur `logistia`
-4. Les machines démarrent et répondent en SSH
-5. Ansible se connecte avec la clé `logistia_ed25519`
-6. Ansible applique les rôles dans l'ordre du playbook `logistia-site.yml`
+Pour supprimer toute l'infrastructure : `terraform destroy`.
+
+## Lien avec le déploiement
+
+Terraform est la première étape des deux méthodes de déploiement décrites dans [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md). En déploiement automatisé, c'est le pipeline GitHub Actions qui exécute ces commandes à la place de l'utilisateur.

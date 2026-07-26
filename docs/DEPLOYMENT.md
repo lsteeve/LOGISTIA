@@ -1,116 +1,126 @@
-# Guide de déploiement — LOGISTIA
+# Déploiement — manuel et automatisé
 
-Procédure de déploiement complet de l'infrastructure, du provisionnement des
-machines virtuelles jusqu'à la configuration des services SOC.
+L'infrastructure LOGISTIA se déploie de **deux façons**, qui aboutissent au même résultat. Ce document explique les deux, pas à pas.
 
----
+- **Méthode 1 — manuelle** : on lance Terraform puis Ansible à la main, depuis un poste d'administration.
+- **Méthode 2 — automatisée** : GitHub Actions exécute Terraform et Ansible via un runner interne.
+
+Dans les deux cas, le principe est le même :
+
+```
+Terraform  ──►  crée les machines virtuelles sur Proxmox
+     puis
+Ansible    ──►  configure chaque machine (applications, sécurité, SOC, IA)
+```
 
 ## Prérequis
 
-- Un hôte **Proxmox VE** accessible (API activée).
-- Un **template cloud-init** Debian 13 (VMID 9000 dans ce projet).
-- Une paire de **clés SSH** dédiée (`logistia_ed25519`).
-- Les **secrets** renseignés (voir `group_vars/logistia-vault.yml.example`).
+- Un serveur **Proxmox VE 9** accessible.
+- Un **template de machine** (Debian 13) préparé sur Proxmox, que Terraform clonera.
+- Un **jeton d'API Proxmox** autorisant la création de machines.
+- Une **paire de clés SSH** dédiée au projet.
+- **Terraform** et **Ansible** installés (pour la méthode manuelle).
 
 ---
 
-## 1. Provisionnement (Terraform)
+## Méthode 1 — Déploiement manuel
 
-Le module `logistia-vm` factorise la création de chaque VM. Les trois VM du stack
-SOAR (MISP, Cortex, TheHive) surchargent `cpu_type = "host"`.
+### Étape 1 : créer les machines avec Terraform
+
+Terraform lit une description de l'infrastructure et crée les machines correspondantes sur Proxmox.
 
 ```bash
 cd infra/terraform
-terraform init
-terraform plan     # vérifier le plan (10 VM à créer)
-terraform apply
+cp terraform.tfvars.example terraform.tfvars
+# renseigner : adresse Proxmox, identifiant et jeton d'API, clé SSH publique
+terraform init      # initialise Terraform
+terraform plan      # affiche ce qui va être créé
+terraform apply     # crée réellement les machines
 ```
 
-Variables principales (voir `variables.tf`) :
+À l'issue de cette étape, les dix machines existent sur Proxmox, avec leur réseau configuré et la clé SSH installée.
 
-| Variable          | Description                          |
-|-------------------|--------------------------------------|
-| `proxmox_node`    | Nom du nœud Proxmox                  |
-| `proxmox_storage` | Datastore de destination            |
-| `vmid_start`      | VMID de base (les VM = start + N)    |
-| `ssh_public_key`  | Clé publique injectée par cloud-init |
-
----
-
-## 2. Configuration (Ansible)
-
-Le playbook `logistia-site.yml` applique les rôles dans l'ordre des dépendances :
-commun → durcissement → routeur → services.
+### Étape 2 : configurer les machines avec Ansible
 
 ```bash
 cd ../../ansible
-
-# Déploiement complet
+cp group_vars/all.yml.example group_vars/all.yml
+# renseigner les secrets dans all.yml
 ansible-playbook -i logistia-inventory.ini playbooks/logistia-site.yml \
   --private-key ~/.ssh/logistia_ed25519
-
-# Déploiement ciblé (exemple : uniquement le SOC)
-ansible-playbook -i logistia-inventory.ini playbooks/logistia-site.yml \
-  --limit logistia-soc --private-key ~/.ssh/logistia_ed25519
 ```
 
----
-
-## 3. Ordre de démarrage des services SOC
-
-Certains services ont un premier démarrage long (initialisation de base de données) :
-
-| Service              | Délai de première initialisation                  |
-|----------------------|---------------------------------------------------|
-| Wazuh indexer        | ~1-2 min (OpenSearch)                             |
-| TheHive (Cassandra)  | ~3-10 min (création du keyspace + migration)      |
-| Cortex (Elasticsearch)| ~1-2 min                                         |
-
-Les rôles Ansible intègrent des `wait_for` / `until` pour patienter automatiquement.
+Ansible se connecte à chaque machine et installe tout : applications, durcissement, SOC, IA. L'ordre d'exécution est décrit dans [../ansible/playbooks/README.md](../ansible/playbooks/README.md).
 
 ---
 
-## 4. Vérifications post-déploiement
+## Méthode 2 — Déploiement automatisé (GitHub Actions)
+
+Ici, c'est GitHub qui exécute Terraform et Ansible, à la demande, sans intervention manuelle.
+
+### Le runner self-hosted
+
+Le pipeline s'exécute sur un **runner** (agent d'exécution) installé sur la machine `devops-logistia`, à l'intérieur de l'infrastructure. Ce choix est nécessaire car le déploiement doit pouvoir joindre les machines sur leurs réseaux internes, ce qu'un runner externe (chez GitHub) ne pourrait pas faire.
+
+### Les secrets
+
+Les informations sensibles sont stockées dans les **secrets GitHub** du dépôt (jamais dans le code) :
+
+| Secret | Contenu |
+|--------|---------|
+| `PROXMOX_URL` | Adresse de l'API Proxmox |
+| `PROXMOX_USER` | Identifiant du jeton d'API |
+| `PROXMOX_PASSWORD` | Valeur du jeton d'API |
+| `SSH_PUBLIC_KEY` | Clé publique installée dans les machines |
+| `ANSIBLE_PRIVATE_KEY` | Clé privée utilisée par Ansible pour se connecter |
+| `ANSIBLE_VAULT_VARS` | Les secrets applicatifs (génèrent le fichier `all.yml`) |
+
+### Les deux workflows
+
+**1. Workflow d'intégration (`logistia-ci.yml`)** — se déclenche automatiquement à chaque modification du code. Il vérifie la qualité et la sécurité :
+
+- vérification de la syntaxe Terraform ;
+- vérification de la syntaxe Ansible ;
+- analyse de sécurité du code (outil Trivy).
+
+C'est la partie **tests et vérifications** : elle garantit qu'on ne déploie pas du code cassé ou vulnérable.
+
+**2. Workflow de déploiement (`logistia-deploy.yml`)** — se déclenche manuellement, avec un choix :
+
+| Choix | Effet |
+|-------|-------|
+| `terraform_only` | Crée ou met à jour les machines |
+| `ansible_only` | Configure les machines existantes |
+| `full` | Fait les deux, dans l'ordre |
+
+Le workflow, étape par étape :
+
+1. récupère le code du dépôt ;
+2. génère la configuration Terraform à partir des secrets ;
+3. exécute Terraform (création des machines) ;
+4. prépare la clé SSH et génère le fichier de secrets Ansible ;
+5. exécute Ansible (configuration) — **en excluant le routeur et la machine devops**, qui constituent le socle et ne doivent pas être reconfigurés pendant que le pipeline tourne sur eux ;
+6. **efface** les fichiers sensibles créés temporairement.
+
+### Lancer le déploiement
+
+Dans l'onglet **Actions** du dépôt GitHub → workflow **LOGISTIA Deploy** → bouton **Run workflow** → choisir l'action → **Run**.
+
+---
+
+## Vérifications après déploiement
 
 ```bash
-# SIEM Wazuh (dashboard)
-curl -sk -o /dev/null -w "%{http_code}\n" https://10.40.40.10        # 302
+# Les services du SOC sont-ils actifs ?
+ssh logistia@10.40.40.10 "sudo systemctl is-active wazuh-manager wazuh-indexer wazuh-dashboard"
 
-# MISP
-curl -sk -o /dev/null -w "%{http_code}\n" https://10.40.40.20        # 200
+# Le modèle d'IA est-il disponible ?
+ssh logistia@10.50.50.10 "curl -s localhost:11434/api/tags"
 
-# Cortex
-curl -s  -o /dev/null -w "%{http_code}\n" http://10.40.40.30:9001/api/status  # 200
-
-# TheHive
-curl -s  -o /dev/null -w "%{http_code}\n" http://10.40.40.40:9000/api/status  # 200
+# Les agents Wazuh sont-ils enregistrés ?
+ssh logistia@10.40.40.10 "sudo /var/ossec/bin/agent_control -l"
 ```
 
----
+## Fiabilité du déploiement
 
-## 5. Points de vigilance connus
-
-- **CPU host** obligatoire pour MISP/Cortex/TheHive (instructions vectorielles
-  NumPy et JVM/Cassandra). Sans cela, certains conteneurs plantent au démarrage.
-- **DNS** : le cloud-init force `8.8.8.8 / 1.1.1.1` (resolv_conf + systemd-resolved)
-  pour éviter l'héritage d'un résolveur défaillant.
-- **soc-logistia est le manager Wazuh** : ne jamais y installer d'agent Wazuh
-  (conflit de paquet qui désinstalle le manager).
-- **Règles nftables du routeur** persistées dans `/etc/nftables.conf` (rôle
-  `logistia-router`) pour survivre aux redémarrages.
-
----
-
-## 6. Test de reconstruction complète
-
-Le projet est conçu pour un cycle « détruire et redéployer » :
-
-```bash
-cd infra/terraform
-terraform destroy      # supprime les 10 VM
-terraform apply        # recrée tout depuis zéro
-# puis relancer le playbook Ansible complet
-```
-
-Aucune intervention manuelle n'est requise : toute la configuration (y compris
-l'installation complète de Wazuh indexer + dashboard + filebeat) est dans le code.
+Les rôles sont **idempotents** : on peut relancer le déploiement sans risque, il n'applique que les changements nécessaires. Plusieurs sécurités sont intégrées pour que le déploiement aboutisse même après un redémarrage ou une coupure (réparation automatique du gestionnaire de paquets, forwarding réseau rendu persistant, délai de démarrage augmenté pour les services lents).

@@ -1,193 +1,127 @@
-# LOGISTIA — Infrastructure SOC / SOAR as Code
+# LOGISTIA — Infrastructure sécurisée et supervisée sur Proxmox
 
-Plateforme SOC (Security Operations Center) complète, déployée en **Infrastructure as Code**
-sur Proxmox, combinant SIEM, CTI et SOAR avec automatisation Terraform + Ansible et
-pipeline CI/CD GitHub Actions.
+LOGISTIA est l'infrastructure informatique centrale d'une PME de **transport et logistique**. Elle héberge les applications métier (ERP de gestion, suivi GPS des véhicules) auxquelles se connectent les entrepôts et sites distants de l'entreprise, et intègre une chaîne complète de cybersécurité : supervision, détection des menaces, analyse par intelligence artificielle et réponse automatisée aux incidents.
 
-> Projet Mastère ISRC — Centre de formation Laser
+L'ensemble est **déployé automatiquement** grâce à l'Infrastructure as Code (Terraform + Ansible) et à un pipeline CI/CD (GitHub Actions), sur un hyperviseur **Proxmox VE 9**.
 
----
+## Équipe projet
 
-## Table des matières
+| Membre | Rôle | Responsabilité principale |
+|--------|------|---------------------------|
+| **Steeve Larive** | Chef de projet · Analyste cybersécurité | SOC, détection, SOAR, durcissement |
+| **Gabriel Malka** | Chef de projet · Ingénieur DevOps / IaC | Terraform, Ansible, pipeline CI/CD |
+| **Silamakan Traore** | Chef de projet · Ingénieur IA / Data | Brique d'intelligence artificielle |
 
-- [Vue d'ensemble](#vue-densemble)
-- [Architecture](#architecture)
-- [Stack technique](#stack-technique)
-- [Chaîne de détection et réponse](#chaîne-de-détection-et-réponse)
-- [Déploiement](#déploiement)
-- [Structure du dépôt](#structure-du-dépôt)
-- [Sécurité](#sécurité)
+## Objectifs du projet
 
----
-
-## Vue d'ensemble
-
-LOGISTIA est une infrastructure de supervision et de réponse à incident conçue pour
-une PME de transport / logistique fictive. Elle démontre une chaîne SOC complète :
-détection d'un événement de sécurité, création automatique d'une alerte, enrichissement
-par renseignement sur les menaces (CTI), et investigation.
-
-Objectifs pédagogiques :
-
-- Architecture réseau segmentée (VLAN)
-- Provisionnement automatisé (Terraform sur Proxmox)
-- Configuration idempotente (Ansible)
-- Intégration continue et déploiement (GitHub Actions)
-- Supervision (Prometheus / Grafana)
-- SIEM et réponse à incident (Wazuh, TheHive, Cortex, MISP)
-
----
+- Concevoir une **architecture virtualisée segmentée** (VLAN) sur Proxmox.
+- **Automatiser** entièrement le déploiement (Terraform pour les VM, Ansible pour la configuration).
+- Mettre en place un **pipeline GitHub Actions** (tests, sécurité, déploiement).
+- Déployer un **SOC** complet : centralisation des logs, supervision, détection.
+- Intégrer un **modèle d'IA open source local** analysant les logs et détectant les comportements suspects.
+- Automatiser la **réponse aux incidents** (blocage des menaces).
 
 ## Architecture
 
+L'infrastructure est hébergée sur un serveur **Proxmox VE 9** et découpée en **VLAN** isolés. Un routeur interne applique un filtrage strict entre les segments (politique « tout est bloqué sauf autorisation explicite »).
+
 ### Plan réseau
 
+```text
+                    Proxmox VE 9 — 192.168.10.150
+                              │
+                    ┌─────────────────────┐
+                    │   router-logistia    │  routeur interne
+                    │   192.168.10.151     │  (nftables : NAT + filtrage inter-VLAN)
+                    └──────────┬──────────┘
+                               │
+   ┌──────────────┬───────────┼───────────┬──────────────┬─────────────┐
+   ▼              ▼           ▼           ▼              ▼             ▼
+ VLAN10 DMZ   VLAN20 Data  VLAN30      VLAN40 SOC     VLAN50 IA     VLAN60 Backup
+ app-logistia db-logistia  DevOps    ┌ soc-logistia  ia-logistia   backup-logistia
+ 10.10.10.10  10.20.20.10  devops    ├ misp-logistia 10.50.50.10   10.60.60.10
+                           10.30.30.10├ cortex-logistia
+                                      └ thehive-logistia
+                                                        VLAN70 Admin — 10.70.70.0/24
 ```
-Internet
-   |
-[Box FAI] 192.168.1.0/24
-   |
-[pfSense]  WAN em0 (bridge) -- LAN2 em2 : 192.168.10.254
-   |
-[router-logistia] 192.168.10.151  (NAT + forwarding nftables)
-   |
-   +-- VLAN APP     10.10.10.0/24   app-logistia
-   +-- VLAN DB      10.20.20.0/24   db-logistia
-   +-- VLAN DEVOPS  10.30.30.0/24   devops-logistia
-   +-- VLAN SOC     10.40.40.0/24   soc / misp / cortex / thehive
-   +-- VLAN IA      10.50.50.0/24   ia-logistia
-   +-- VLAN BACKUP  10.60.60.0/24   backup-logistia
-```
+
+### VLAN
+
+| VLAN | Sous-réseau | Zone | Contenu |
+|------|-------------|------|---------|
+| VLAN10 | 10.10.10.0/24 | DMZ | Serveur web applicatif (exposé) |
+| VLAN20 | 10.20.20.0/24 | Data | Base de données (isolée) |
+| VLAN30 | 10.30.30.0/24 | DevOps | Runner CI/CD, outils d'automatisation |
+| VLAN40 | 10.40.40.0/24 | SOC | SIEM, supervision, Threat Intelligence |
+| VLAN50 | 10.50.50.0/24 | IA | Moteur d'analyse par intelligence artificielle |
+| VLAN60 | 10.60.60.0/24 | Backup | Sauvegardes |
+| VLAN70 | 10.70.70.0/24 | Admin | Poste d'administration (SSH, accès Proxmox) |
 
 ### Machines virtuelles
 
-| VM  | VMID | IP            | Rôle                                   | vCPU | RAM   |
-|-----|------|---------------|----------------------------------------|------|-------|
-| router  | 101 | 192.168.10.151 | Routeur / pare-feu nftables          | 2 | 2 Go  |
-| app     | 102 | 10.10.10.10   | Application (Dolibarr / nginx)         | 2 | 4 Go  |
-| db      | 103 | 10.20.20.10   | Base de données MariaDB                | 2 | 4 Go  |
-| devops  | 104 | 10.30.30.10   | Runner CI/CD, Terraform, Ansible       | 2 | 4 Go  |
-| soc     | 105 | 10.40.40.10   | Wazuh, Prometheus, Grafana             | 2 | 12 Go |
-| ia      | 106 | 10.50.50.10   | Modèle IA (Ollama)                     | 2 | 12 Go |
-| backup  | 107 | 10.60.60.10   | Sauvegardes                            | 2 | 2 Go  |
-| misp    | 108 | 10.40.40.20   | Threat Intelligence (MISP)             | 3 | 8 Go  |
-| cortex  | 109 | 10.40.40.30   | Moteur d'analyse (Cortex)              | 4 | 8 Go  |
-| thehive | 110 | 10.40.40.40   | Gestion d'incidents (TheHive)          | 4 | 12 Go |
+| VMID | Nom | IP | VLAN | vCPU | RAM | Services |
+|------|-----|----|------|------|-----|---------|
+| 101 | router-logistia | 192.168.10.151 | — | 2 | 2 Go | Routeur nftables (NAT, filtrage) |
+| 102 | app-logistia | 10.10.10.10 | DMZ | 2 | 4 Go | Nginx, Dolibarr (ERP), Traccar (suivi GPS) |
+| 103 | db-logistia | 10.20.20.10 | Data | 2 | 4 Go | MariaDB |
+| 104 | devops-logistia | 10.30.30.10 | DevOps | 2 | 4 Go | Runner GitHub Actions, Terraform, Ansible |
+| 105 | soc-logistia | 10.40.40.10 | SOC | 4 | 12 Go | Wazuh, Prometheus, Grafana, scanner IA |
+| 108 | misp-logistia | 10.40.40.20 | SOC | 3 | 8 Go | MISP (Threat Intelligence) |
+| 109 | cortex-logistia | 10.40.40.30 | SOC | 4 | 8 Go | Cortex (analyse d'observables) |
+| 110 | thehive-logistia | 10.40.40.40 | SOC | 4 | 12 Go | TheHive (gestion d'incidents) |
+| 106 | ia-logistia | 10.50.50.10 | IA | 4 | 12 Go | Ollama (modèle phi3), détection d'anomalies |
+| 107 | backup-logistia | 10.60.60.10 | Backup | 1 | 2 Go | Proxmox Backup Server, sauvegardes 3-2-1 |
 
-> Les VM 108/109/110 utilisent `cpu_type = host` (requis pour NumPy, Java/Lucene et Cassandra).
-
----
-
-## Stack technique
-
-| Domaine            | Outils                                            |
-|--------------------|---------------------------------------------------|
-| Hyperviseur        | Proxmox VE                                        |
-| IaC                | Terraform (provider Proxmox)                       |
-| Configuration      | Ansible (rôles idempotents)                        |
-| CI/CD              | GitHub Actions (self-hosted runner)               |
-| SIEM               | Wazuh 4.14 (manager + indexer OpenSearch + dashboard) |
-| CTI                | MISP                                              |
-| Analyse            | Cortex + Elasticsearch                            |
-| SOAR               | TheHive 5 (Cassandra + Elasticsearch + MinIO)     |
-| Supervision        | Prometheus + Grafana                              |
-| Conteneurisation   | Docker / Docker Compose (MISP, Cortex, TheHive)   |
-
----
-
-## Chaîne de détection et réponse
-
-```
-   ┌─────────┐   alerte    ┌──────────┐   enrichit   ┌────────┐  confirme  ┌──────┐
-   │  Wazuh  │ ──────────► │ TheHive  │ ───────────► │ Cortex │ ─────────► │ MISP │
-   │  SIEM   │             │  SOAR    │              │ analyse│            │ CTI  │
-   └─────────┘             └──────────┘              └────────┘            └──────┘
-   détection                création                 analyzers            renseignement
-   d'événement              d'alerte/case            (IP, hash...)        sur menaces
-```
-
-1. **Wazuh** détecte un événement (règle de niveau ≥ 7) sur un agent.
-2. Un script d'intégration (`custom-w2thive`) crée automatiquement une **alerte TheHive**.
-3. Depuis TheHive, un analyste lance les **analyzers Cortex** sur les observables.
-4. **Cortex** interroge **MISP** pour confirmer si un indicateur est une menace connue.
-
----
+Un schéma illustré est disponible : [docs/architecture-schema.html](docs/architecture-schema.html).
+Détails complets : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Déploiement
 
-Le déploiement complet est piloté par le pipeline CI/CD (from scratch) :
+L'infrastructure se déploie de **deux façons**, décrites en détail dans [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) :
 
-```bash
-# 1. Provisionnement des VM (Terraform)
-cd infra/terraform
-terraform init
-terraform apply
+1. **Manuellement** — Terraform crée les VM, puis Ansible les configure.
+2. **Automatiquement** — le workflow GitHub Actions `LOGISTIA Deploy` exécute Terraform et Ansible via un runner interne.
 
-# 2. Configuration (Ansible)
-cd ../../ansible
-ansible-playbook -i logistia-inventory.ini playbooks/logistia-site.yml \
-  --private-key ~/.ssh/logistia_ed25519
-```
+## Documentation
 
-Déploiement ciblé d'un seul composant :
-
-```bash
-ansible-playbook -i logistia-inventory.ini playbooks/logistia-site.yml \
-  --limit logistia-soc --private-key ~/.ssh/logistia_ed25519
-```
-
-Voir [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) pour la procédure détaillée.
-
----
+| Document | Contenu |
+|----------|---------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture détaillée : VLAN, VM, flux réseau |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Déploiement manuel et automatisé (pas à pas) |
+| [docs/IA.md](docs/IA.md) | Brique d'intelligence artificielle |
+| [docs/SOC-SOAR.md](docs/SOC-SOAR.md) | Fonctionnement du SOC, du SOAR et de leur lien avec l'IA |
+| [docs/CYBERSECURITE.md](docs/CYBERSECURITE.md) | Segmentation, détection, durcissement |
+| [ansible/README.md](ansible/README.md) | Organisation et fonctionnement d'Ansible |
+| [ansible/roles/README.md](ansible/roles/README.md) | Description de chaque rôle |
+| [ansible/playbooks/README.md](ansible/playbooks/README.md) | Ordre d'exécution du playbook |
+| [ansible/group_vars/README.md](ansible/group_vars/README.md) | Variables et gestion des secrets |
+| [infra/README.md](infra/README.md) | Infrastructure Terraform |
 
 ## Structure du dépôt
 
-```
-logistia/
-├── infra/
-│   └── terraform/
-│       ├── main.tf                 # déclaration des 10 VM
-│       ├── variables.tf
-│       ├── modules/logistia-vm/    # module VM réutilisable (cpu_type paramétrable)
-│       └── cloudinit/              # cloud-init (DNS, user, paquets de base)
-├── ansible/
-│   ├── logistia-inventory.ini      # inventaire (10 hôtes)
+```text
+LOGISTIA/
+├── .github/workflows/       # Pipelines CI/CD (intégration + déploiement)
+│   ├── logistia-ci.yml
+│   └── logistia-deploy.yml
+├── ansible/                 # Configuration des serveurs
+│   ├── logistia-inventory.ini
 │   ├── playbooks/
-│   │   └── logistia-site.yml       # playbook principal
 │   ├── group_vars/
-│   └── roles/
-│       ├── logistia-common         # config commune
-│       ├── logistia-hardening      # durcissement CIS
-│       ├── logistia-router         # NAT / forwarding / nftables
-│       ├── logistia-app            # Dolibarr
-│       ├── logistia-db             # MariaDB
-│       ├── logistia-devops         # runner, Docker
-│       ├── logistia-soc            # Wazuh (manager+indexer+dashboard), Prometheus, Grafana
-│       ├── logistia-ia             # Ollama
-│       ├── logistia-backup         # sauvegardes
-│       ├── logistia-misp           # MISP (Docker)
-│       ├── logistia-cortex         # Cortex + Elasticsearch (Docker)
-│       └── logistia-thehive        # TheHive + Cassandra + ES + MinIO (Docker)
-├── .github/workflows/              # pipelines CI/CD
-└── docs/                           # documentation
+│   └── roles/               # 13 rôles (voir ansible/roles/README.md)
+├── infra/terraform/         # Création des VM sur Proxmox
+│   ├── main.tf
+│   ├── variables.tf
+│   └── modules/logistia-vm/
+└── docs/                    # Documentation détaillée
 ```
 
----
+## Accès au dépôt
 
-## Sécurité
-
-- Segmentation réseau en 6+ VLAN, base de données isolée du réseau exposé.
-- Durcissement CIS niveau 1 (rôle `logistia-hardening`).
-- Pare-feu nftables sur le routeur (politique `drop` par défaut, règles explicites).
-- Secrets gérés hors du dépôt (`.gitignore` couvre vault, `.env`, clés, tfvars).
-- Authentification par clé SSH (pas de mot de passe).
-
-> ⚠️ Cet environnement est un **lab pédagogique**. Certains secrets de démonstration
-> figurent dans les valeurs par défaut pour faciliter le déploiement ; en production,
-> utiliser Ansible Vault et régénérer toutes les clés.
+- **Dépôt** : `https://github.com/lsteeve/LOGISTIA`
+- **Branche principale** : `main`
+- **CI/CD** : onglet *Actions* du dépôt
 
 ---
 
-## Auteur
-
-Projet réalisé dans le cadre du Mastère ISRC.
+*Mastère ISRC (Ingénieur Systèmes Réseaux et Cybersécurité) — Année 2 — 2026*

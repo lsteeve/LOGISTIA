@@ -1,22 +1,30 @@
-# Playbooks LOGISTIA
+# Le playbook principal — ordre d'exécution
 
-## Ordre d'exécution de logistia-site.yml
+Le fichier `logistia-site.yml` est le **playbook principal**. Il orchestre la configuration de toute l'infrastructure en associant chaque groupe de machines aux rôles qui le concernent, dans un ordre précis.
 
-1. `logistia-common` — paquets de base et rsyslog sur toutes les machines
-2. `logistia-hardening` — durcissement SSH, sysctl, auditd sur toutes les machines
-3. `logistia-router` — NAT, nftables, interfaces VLAN sur router-logistia
-4. `logistia-app` — Nginx, Dolibarr, Traccar sur app-logistia
-5. `logistia-db` — MariaDB sur db-logistia
-6. `logistia-devops` — GitHub Runner, Terraform sur devops-logistia
-7. `logistia-soc` — Wazuh, Prometheus, Grafana, Syslog-ng sur soc-logistia
-8. `logistia-ia` — Ollama, Mistral, logistia-scanner sur ia-logistia
-9. `logistia-backup` — rsync, PBS sur backup-logistia
-10. Vérification finale — qemu-guest-agent actif sur toutes les machines
+## Ordre d'exécution
 
-## Pourquoi le routeur est configuré en premier
+Le playbook applique les rôles groupe par groupe. L'ordre est important : les fondations réseau et système sont posées avant les applications et la sécurité.
 
-`router-logistia` fournit le NAT pour toutes les autres machines. Sans lui, les machines des VLANs internes ne peuvent pas accéder à Internet pour télécharger les paquets apt.
+1. **router-logistia** — le routeur est configuré en premier : sans lui, les autres machines n'ont pas de connectivité inter-VLAN ni d'accès à Internet.
+2. **Machines applicatives** (app, db) — configuration système commune, durcissement, puis installation des applications (Nginx/Dolibarr/Traccar, MariaDB).
+3. **devops-logistia** — le runner CI/CD et les outils d'automatisation.
+4. **soc-logistia** — le cœur du SOC : SIEM Wazuh, supervision, règles de détection, réponse automatique, scanner IA.
+5. **ia-logistia** — le moteur d'IA (Ollama + modèle phi3).
+6. **backup-logistia** — les sauvegardes.
+7. **misp / cortex / thehive** — la chaîne de Threat Intelligence.
+8. **Agents Wazuh** — enregistrement des agents sur toutes les machines pour qu'elles remontent leurs journaux au SOC.
+9. **Vérification finale** — contrôle que les machines répondent correctement.
 
-## Pourquoi `become: true`
+## Pourquoi cet ordre
 
-Les rôles installent des paquets, modifient `/etc` et démarrent des services. Ces opérations nécessitent les droits root via sudo.
+- Le **routeur d'abord**, car toute la connectivité en dépend.
+- Les **rôles transverses** (système commun, durcissement) avant les rôles applicatifs, pour partir d'une base saine et sécurisée.
+- Le **SOC et l'IA** ensemble, car le scanner du SOC a besoin du moteur d'IA.
+- Les **agents Wazuh en fin de parcours**, une fois que le manager Wazuh (sur le SOC) est prêt à les accueillir.
+
+## Particularité du déploiement automatisé
+
+Lors du déploiement par GitHub Actions, deux machines sont **volontairement exclues** du playbook : le **routeur** et la machine **devops** (qui héberge le runner). En effet, reconfigurer le routeur couperait le réseau en plein déploiement, et reconfigurer la machine devops interromprait le runner qui exécute le pipeline. Ces deux machines constituent le socle et sont déployées séparément.
+
+Voir [docs/DEPLOYMENT.md](../../docs/DEPLOYMENT.md) pour le détail.
