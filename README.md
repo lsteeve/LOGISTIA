@@ -1,5 +1,9 @@
 # LOGISTIA — Infrastructure sécurisée et supervisée sur Proxmox
 
+[![LOGISTIA CI](https://github.com/lsteeve/LOGISTIA/actions/workflows/logistia-ci.yml/badge.svg)](https://github.com/lsteeve/LOGISTIA/actions/workflows/logistia-ci.yml)
+[![LOGISTIA Deploy](https://github.com/lsteeve/LOGISTIA/actions/workflows/logistia-deploy.yml/badge.svg)](https://github.com/lsteeve/LOGISTIA/actions/workflows/logistia-deploy.yml)
+
+
 LOGISTIA est l'infrastructure informatique centrale d'une PME de **transport et logistique**. Elle héberge les applications métier (ERP de gestion, suivi GPS des véhicules) auxquelles se connectent les entrepôts et sites distants de l'entreprise, et intègre une chaîne complète de cybersécurité : supervision, détection des menaces, analyse par intelligence artificielle et réponse automatisée aux incidents.
 
 L'ensemble est **déployé automatiquement** grâce à l'Infrastructure as Code (Terraform + Ansible) et à un pipeline CI/CD (GitHub Actions), sur un hyperviseur **Proxmox VE 9**.
