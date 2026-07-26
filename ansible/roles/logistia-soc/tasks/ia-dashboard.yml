@@ -1,0 +1,39 @@
+---
+# ============================================================================
+# LOGISTIA - Dashboard IA web
+#
+# Deploie une interface web qui affiche les rapports d'analyse produits par
+# le scanner IA, accessible sur http://<soc>:8080.
+# Importe par logistia-soc/tasks/main.yml
+# ============================================================================
+
+- name: Deployer le dashboard IA web
+  copy:
+    src: logistia-ia-dashboard.py
+    dest: /opt/logistia-ia/logistia-ia-dashboard.py
+    mode: '0755'
+
+- name: Service systemd du dashboard IA web
+  copy:
+    dest: /etc/systemd/system/logistia-ia-dashboard.service
+    content: |
+      [Unit]
+      Description=LOGISTIA - Dashboard IA web
+      After=network.target
+      [Service]
+      ExecStart=/usr/bin/python3 /opt/logistia-ia/logistia-ia-dashboard.py
+      Restart=always
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+
+- name: Activer et demarrer le dashboard IA web
+  systemd:
+    name: logistia-ia-dashboard
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Etat dashboard IA
+  debug:
+    msg: "Dashboard IA disponible sur http://{{ ansible_host | default('10.40.40.10') }}:8080"

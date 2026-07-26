@@ -148,3 +148,6 @@
 
 # Active Response - blocage auto des IP malveillantes (SOAR)
 - import_tasks: active-response.yml
+
+# Dashboard IA web (affichage des rapports)
+- import_tasks: ia-dashboard.yml
