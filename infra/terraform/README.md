@@ -1,6 +1,6 @@
 # Terraform LOGISTIA
 
-Ce dossier crée les sept machines Debian 13 du projet LOGISTIA sur Proxmox VE 9.
+Ce dossier crée les dix machines Debian 13 du projet LOGISTIA sur Proxmox VE 9.
 
 ## Machines créées
 
@@ -13,6 +13,9 @@ Ce dossier crée les sept machines Debian 13 du projet LOGISTIA sur Proxmox VE 9
 | 105 | soc-logistia | 10.40.40.10 | VLAN40 | 12 Go | 60 Go |
 | 106 | ia-logistia | 10.50.50.10 | VLAN50 | 12 Go | 40 Go |
 | 107 | backup-logistia | 10.60.60.10 | VLAN60 | 2 Go | 100 Go |
+| 108 | misp-logistia | 10.40.40.20 | VLAN40 | 8 Go | 40 Go |
+| 109 | cortex-logistia | 10.40.40.30 | VLAN40 | 8 Go | 40 Go |
+| 110 | thehive-logistia | 10.40.40.40 | VLAN40 | 12 Go | 50 Go |
 
 ## Prérequis Proxmox
 
