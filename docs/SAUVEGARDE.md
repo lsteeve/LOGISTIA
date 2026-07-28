@@ -25,7 +25,7 @@ Paramètres du job :
 
 - **Stockage** : `pbs-logistia`
 - **Machines** : les 10 VM (VMID 101 à 110)
-- **Planification** : deux fois par semaine (mardi et samedi à 22h30)
+- **Planification** : tous les jours à 22h30
 - **Mode** : snapshot (sans interruption des VM)
 - **Rétention** : 3 dernières, 7 quotidiennes, 4 hebdomadaires, 3 mensuelles
 
