@@ -32,21 +32,32 @@ L'infrastructure est hébergée sur un serveur **Proxmox VE 9** et découpée en
 ### Plan réseau
 
 ```text
-                    Proxmox VE 9 — 192.168.10.150
-                              │
-                    ┌─────────────────────┐
-                    │   router-logistia    │  routeur interne
-                    │   192.168.10.151     │  (nftables : NAT + filtrage inter-VLAN)
-                    └──────────┬──────────┘
-                               │
-   ┌──────────────┬───────────┼───────────┬──────────────┬─────────────┐
-   ▼              ▼           ▼           ▼              ▼             ▼
- VLAN10 DMZ   VLAN20 Data  VLAN30      VLAN40 SOC     VLAN50 IA     VLAN60 Backup
- app-logistia db-logistia  DevOps    ┌ soc-logistia  ia-logistia   backup-logistia
- 10.10.10.10  10.20.20.10  devops    ├ misp-logistia 10.50.50.10   10.60.60.10
-                           10.30.30.10├ cortex-logistia
-                                      └ thehive-logistia
-                                                        VLAN70 Admin — 10.70.70.0/24
+                    Proxmox VE 9  —  192.168.10.150
+                                │
+                    ┌───────────────────────┐
+                    │    router-logistia     │
+                    │    192.168.10.151      │
+                    │  nftables : NAT +      │
+                    │  filtrage inter-VLAN   │
+                    └───────────┬───────────┘
+                                │
+              ┌─────────────────┴─────────────────┐
+              │      Segmentation en 7 VLAN        │
+              └───────────────────────────────────┘
+
+  VLAN10  DMZ      10.10.10.0/24   app-logistia      (Nginx, Dolibarr, Traccar)
+  VLAN20  Data     10.20.20.0/24   db-logistia       (MariaDB)
+  VLAN30  DevOps   10.30.30.0/24   devops-logistia   (runner CI/CD, IaC)
+  VLAN40  SOC      10.40.40.0/24   soc-logistia      (Wazuh, Prometheus, Grafana, IA)
+                                   misp-logistia     (Threat Intelligence)
+                                   cortex-logistia   (analyse d'observables)
+                                   thehive-logistia  (gestion des incidents)
+  VLAN50  IA       10.50.50.0/24   ia-logistia       (Ollama + phi3)
+  VLAN60  Backup   10.60.60.0/24   backup-logistia   (PBS, sauvegardes 3-2-1)
+  VLAN70  Admin    10.70.70.0/24   poste d'administration (SSH + acces Proxmox)
+
+  Politique par defaut : tout trafic inter-VLAN est bloque,
+  seuls les flux explicitement autorises sont routes.
 ```
 
 ### VLAN
