@@ -95,6 +95,7 @@ L'infrastructure se déploie de **deux façons**, décrites en détail dans [doc
 | [docs/IA.md](docs/IA.md) | Brique d'intelligence artificielle |
 | [docs/SOC-SOAR.md](docs/SOC-SOAR.md) | Fonctionnement du SOC, du SOAR et de leur lien avec l'IA |
 | [docs/CYBERSECURITE.md](docs/CYBERSECURITE.md) | Segmentation, détection, durcissement |
+| [docs/SAUVEGARDE.md](docs/SAUVEGARDE.md) | Stratégie de sauvegarde (PBS + rsync, 3-2-1) |
 | [ansible/README.md](ansible/README.md) | Organisation et fonctionnement d'Ansible |
 | [ansible/roles/README.md](ansible/roles/README.md) | Description de chaque rôle |
 | [ansible/playbooks/README.md](ansible/playbooks/README.md) | Ordre d'exécution du playbook |
