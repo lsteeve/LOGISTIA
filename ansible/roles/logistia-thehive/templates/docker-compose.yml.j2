@@ -10,10 +10,11 @@ services:
     volumes:
       - cassandra_data:/var/lib/cassandra
     healthcheck:
-      test: ["CMD-SHELL", "nodetool status || exit 1"]
-      interval: 30s
+      test: ["CMD-SHELL", "cqlsh -e 'describe keyspaces' || exit 1"]
+      interval: 15s
       timeout: 10s
-      retries: 15
+      retries: 20
+      start_period: 90s
   elasticsearch:
     image: elasticsearch:7.17.28
     container_name: thehive-elasticsearch
