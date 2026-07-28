@@ -87,7 +87,7 @@ L'infrastructure est hébergée sur un serveur **Proxmox VE 9** et découpée en
 | 106 | ia-logistia | 10.50.50.10 | IA | 4 | 12 Go | Ollama (modèle phi3), détection d'anomalies |
 | 107 | backup-logistia | 10.60.60.10 | Backup | 1 | 2 Go | Proxmox Backup Server, sauvegardes 3-2-1 |
 
-Un schéma illustré est disponible : [docs/architecture-schema.html](docs/architecture-schema.html).
+Un schéma illustré est disponible : [docs/architecture-logistia.svg](docs/architecture-logistia.svg).
 Détails complets : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Déploiement

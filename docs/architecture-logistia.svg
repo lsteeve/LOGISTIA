@@ -1,0 +1,279 @@
+<svg viewBox="0 0 1400 1080" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Roboto, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5a6b7f"/>
+    </marker>
+    <marker id="arrowvpn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+    <linearGradient id="gband" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f3a5f"/>
+      <stop offset="1" stop-color="#2e5e8c"/>
+    </linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#1f3a5f" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="1080" fill="#f6f8fb"/>
+
+  <!-- Titre -->
+  <text x="700" y="42" text-anchor="middle" font-size="27" font-weight="700" fill="#1f3a5f">Architecture LOGISTIA — Infrastructure multi-entrepôts sécurisée</text>
+  <text x="700" y="68" text-anchor="middle" font-size="15" fill="#5a6b7f">Sites distants raccordés par VPN à l'hyperviseur Proxmox VE 9 du siège · SOC + IA + SOAR</text>
+
+  <!-- ======================= ENTREPOTS DISTANTS ======================= -->
+  <g filter="url(#sh)">
+    <rect x="60" y="110" width="360" height="150" rx="12" fill="#ffffff" stroke="#c9d4e0" stroke-width="1.5"/>
+  </g>
+  <text x="240" y="135" text-anchor="middle" font-size="15" font-weight="700" fill="#1f3a5f">Entrepôts distants (sites LOGISTIA)</text>
+
+  <!-- 3 entrepots -->
+  <g>
+    <rect x="80" y="150" width="105" height="95" rx="9" fill="#eef3f9" stroke="#2e5e8c" stroke-width="1.3"/>
+    <text x="132" y="172" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1f3a5f">Paris</text>
+    <text x="132" y="192" text-anchor="middle" font-size="10.5" fill="#41586f">appli web</text>
+    <text x="132" y="207" text-anchor="middle" font-size="10.5" fill="#41586f">suivi logistique</text>
+    <text x="132" y="224" text-anchor="middle" font-size="10.5" fill="#41586f">capteurs IoT</text>
+    <text x="132" y="238" text-anchor="middle" font-size="10.5" fill="#41586f">(temp., RFID)</text>
+  </g>
+  <g>
+    <rect x="192" y="150" width="96" height="95" rx="9" fill="#eef3f9" stroke="#2e5e8c" stroke-width="1.3"/>
+    <text x="240" y="172" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1f3a5f">Lyon</text>
+    <text x="240" y="192" text-anchor="middle" font-size="10.5" fill="#41586f">appli web</text>
+    <text x="240" y="207" text-anchor="middle" font-size="10.5" fill="#41586f">suivi logistique</text>
+    <text x="240" y="224" text-anchor="middle" font-size="10.5" fill="#41586f">capteurs IoT</text>
+    <text x="240" y="238" text-anchor="middle" font-size="10.5" fill="#41586f">(temp., RFID)</text>
+  </g>
+  <g>
+    <rect x="295" y="150" width="105" height="95" rx="9" fill="#eef3f9" stroke="#2e5e8c" stroke-width="1.3"/>
+    <text x="347" y="172" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1f3a5f">Bordeaux</text>
+    <text x="347" y="192" text-anchor="middle" font-size="10.5" fill="#41586f">appli web</text>
+    <text x="347" y="207" text-anchor="middle" font-size="10.5" fill="#41586f">suivi logistique</text>
+    <text x="347" y="224" text-anchor="middle" font-size="10.5" fill="#41586f">capteurs IoT</text>
+    <text x="347" y="238" text-anchor="middle" font-size="10.5" fill="#41586f">(temp., RFID)</text>
+  </g>
+
+  <!-- Liaison VPN (pointilles rouge) vers routeur -->
+  <path d="M420,185 C500,185 520,300 605,300" fill="none" stroke="#c0392b" stroke-width="2.4" stroke-dasharray="8 5" marker-end="url(#arrowvpn)"/>
+  <g>
+    <rect x="470" y="150" width="120" height="46" rx="8" fill="#fbeceb" stroke="#c0392b" stroke-width="1.4"/>
+    <text x="530" y="170" text-anchor="middle" font-size="13" font-weight="700" fill="#c0392b">Tunnels VPN</text>
+    <text x="530" y="187" text-anchor="middle" font-size="10" fill="#a5352a">chiffrés (cible)</text>
+  </g>
+
+  <!-- ======================= INTERNET ======================= -->
+  <g filter="url(#sh)">
+    <ellipse cx="240" cy="330" rx="70" ry="30" fill="#ffffff" stroke="#c9d4e0" stroke-width="1.5"/>
+  </g>
+  <text x="240" y="328" text-anchor="middle" font-size="14" font-weight="700" fill="#5a6b7f">Internet</text>
+  <text x="240" y="345" text-anchor="middle" font-size="10.5" fill="#8a94a6">HTTPS 443</text>
+  <path d="M310,335 C420,345 500,320 605,315" fill="none" stroke="#5a6b7f" stroke-width="2" stroke-dasharray="2 3" marker-end="url(#arrow)"/>
+
+  <!-- ======================= SIEGE : cadre Proxmox ======================= -->
+  <g filter="url(#sh)">
+    <rect x="600" y="95" width="770" height="915" rx="16" fill="#ffffff" stroke="#1f3a5f" stroke-width="2"/>
+  </g>
+  <rect x="600" y="95" width="770" height="40" rx="16" fill="url(#gband)"/>
+  <rect x="600" y="118" width="770" height="17" fill="#2e5e8c"/>
+  <text x="985" y="122" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">SIÈGE — Hyperviseur Proxmox VE 9  ·  192.168.10.150</text>
+
+  <!-- Routeur -->
+  <g filter="url(#sh)">
+    <rect x="800" y="270" width="360" height="66" rx="10" fill="#1f3a5f"/>
+  </g>
+  <text x="980" y="298" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">router-logistia · 192.168.10.151</text>
+  <text x="980" y="320" text-anchor="middle" font-size="11.5" fill="#c9d4e0">point d'entrée unique · nftables (NAT + filtrage inter-VLAN) · terminaison VPN</text>
+
+  <!-- lien routeur vers barre de distribution -->
+  <line x1="980" y1="336" x2="980" y2="372" stroke="#5a6b7f" stroke-width="2.2"/>
+  <line x1="660" y1="372" x2="1300" y2="372" stroke="#5a6b7f" stroke-width="2.2"/>
+
+  <!-- descentes vers chaque VLAN -->
+  <g stroke="#5a6b7f" stroke-width="1.8">
+    <line x1="695" y1="372" x2="695" y2="400"/>
+    <line x1="850" y1="372" x2="850" y2="400"/>
+    <line x1="980" y1="372" x2="980" y2="400"/>
+    <line x1="1110" y1="372" x2="1110" y2="400"/>
+    <line x1="1265" y1="372" x2="1265" y2="400"/>
+  </g>
+
+  <!-- ===== Rangée 1 : DMZ, Data, DevOps, IA, Backup ===== -->
+  <!-- VLAN10 DMZ -->
+  <g filter="url(#sh)"><rect x="628" y="400" width="135" height="104" rx="9" fill="#fff7ed" stroke="#e08a2b" stroke-width="1.4"/></g>
+  <text x="695" y="420" text-anchor="middle" font-size="12.5" font-weight="700" fill="#b5651d">VLAN10 · DMZ</text>
+  <text x="695" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a1a">app-logistia</text>
+  <text x="695" y="460" text-anchor="middle" font-size="10" fill="#41586f">10.10.10.10</text>
+  <text x="695" y="477" text-anchor="middle" font-size="9.5" fill="#41586f">Nginx · Dolibarr</text>
+  <text x="695" y="491" text-anchor="middle" font-size="9.5" fill="#41586f">Traccar</text>
+
+  <!-- VLAN20 Data -->
+  <g filter="url(#sh)"><rect x="783" y="400" width="135" height="104" rx="9" fill="#eef7f0" stroke="#3a9d5d" stroke-width="1.4"/></g>
+  <text x="850" y="420" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2b7a45">VLAN20 · Data</text>
+  <text x="850" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a1a">db-logistia</text>
+  <text x="850" y="460" text-anchor="middle" font-size="10" fill="#41586f">10.20.20.10</text>
+  <text x="850" y="477" text-anchor="middle" font-size="9.5" fill="#41586f">MariaDB</text>
+  <text x="850" y="491" text-anchor="middle" font-size="9.5" fill="#41586f">(base isolée)</text>
+
+  <!-- VLAN30 DevOps -->
+  <g filter="url(#sh)"><rect x="913" y="400" width="135" height="104" rx="9" fill="#eef1f7" stroke="#3d5a99" stroke-width="1.4"/></g>
+  <text x="980" y="420" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2f4680">VLAN30 · DevOps</text>
+  <text x="980" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a1a">devops-logistia</text>
+  <text x="980" y="460" text-anchor="middle" font-size="10" fill="#41586f">10.30.30.10</text>
+  <text x="980" y="477" text-anchor="middle" font-size="9.5" fill="#41586f">Runner CI/CD</text>
+  <text x="980" y="491" text-anchor="middle" font-size="9.5" fill="#41586f">Terraform·Ansible</text>
+
+  <!-- VLAN50 IA -->
+  <g filter="url(#sh)"><rect x="1043" y="400" width="135" height="104" rx="9" fill="#f3eef9" stroke="#7d4fbf" stroke-width="1.4"/></g>
+  <text x="1110" y="420" text-anchor="middle" font-size="12.5" font-weight="700" fill="#5e3a99">VLAN50 · IA</text>
+  <text x="1110" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a1a">ia-logistia</text>
+  <text x="1110" y="460" text-anchor="middle" font-size="10" fill="#41586f">10.50.50.10</text>
+  <text x="1110" y="477" text-anchor="middle" font-size="9.5" fill="#41586f">Ollama · phi3</text>
+  <text x="1110" y="491" text-anchor="middle" font-size="9.5" fill="#41586f">Isolation Forest</text>
+
+  <!-- VLAN60 Backup -->
+  <g filter="url(#sh)"><rect x="1198" y="400" width="135" height="104" rx="9" fill="#eef4f7" stroke="#2b8ca6" stroke-width="1.4"/></g>
+  <text x="1265" y="420" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f6a80">VLAN60 · Backup</text>
+  <text x="1265" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a1a">backup-logistia</text>
+  <text x="1265" y="460" text-anchor="middle" font-size="10" fill="#41586f">10.60.60.10</text>
+  <text x="1265" y="477" text-anchor="middle" font-size="9.5" fill="#41586f">PBS · rsync</text>
+  <text x="1265" y="491" text-anchor="middle" font-size="9.5" fill="#41586f">3-2-1</text>
+
+  <!-- lien app -> db (flux 3306) -->
+  <path d="M763,470 L783,470" stroke="#3a9d5d" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="773" y="463" text-anchor="middle" font-size="8.5" fill="#2b7a45">3306</text>
+
+  <!-- ===== VLAN40 SOC (grand bloc) ===== -->
+  <g filter="url(#sh)">
+    <rect x="628" y="545" width="705" height="235" rx="12" fill="#fbf0f0" stroke="#c0392b" stroke-width="1.8"/>
+  </g>
+  <text x="648" y="572" font-size="15" font-weight="700" fill="#c0392b">VLAN40 · SOC — Supervision, sécurité et Threat Intelligence  (10.40.40.0/24)</text>
+
+  <!-- lien barre -> SOC -->
+  <line x1="980" y1="504" x2="980" y2="525" stroke="#5a6b7f" stroke-width="1.8"/>
+  <line x1="980" y1="525" x2="980" y2="545" stroke="#c0392b" stroke-width="2" stroke-dasharray="1 0"/>
+
+  <!-- soc -->
+  <g filter="url(#sh)"><rect x="650" y="592" width="200" height="76" rx="9" fill="#ffffff" stroke="#c0392b" stroke-width="1.3"/></g>
+  <text x="750" y="614" text-anchor="middle" font-size="13" font-weight="700" fill="#1a1a1a">soc-logistia · 10.40.40.10</text>
+  <text x="750" y="633" text-anchor="middle" font-size="10" fill="#41586f">Wazuh (SIEM) · Prometheus</text>
+  <text x="750" y="649" text-anchor="middle" font-size="10" fill="#41586f">Grafana · scanner IA</text>
+  <text x="750" y="663" text-anchor="middle" font-size="10" fill="#41586f">dashboard IA · Active Response</text>
+
+  <!-- misp -->
+  <g filter="url(#sh)"><rect x="866" y="592" width="145" height="76" rx="9" fill="#ffffff" stroke="#c0392b" stroke-width="1.3"/></g>
+  <text x="938" y="614" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1a1a1a">misp-logistia</text>
+  <text x="938" y="632" text-anchor="middle" font-size="10" fill="#41586f">10.40.40.20</text>
+  <text x="938" y="650" text-anchor="middle" font-size="10" fill="#41586f">Threat</text>
+  <text x="938" y="663" text-anchor="middle" font-size="10" fill="#41586f">Intelligence</text>
+
+  <!-- cortex -->
+  <g filter="url(#sh)"><rect x="1023" y="592" width="140" height="76" rx="9" fill="#ffffff" stroke="#c0392b" stroke-width="1.3"/></g>
+  <text x="1093" y="614" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1a1a1a">cortex-logistia</text>
+  <text x="1093" y="632" text-anchor="middle" font-size="10" fill="#41586f">10.40.40.30</text>
+  <text x="1093" y="650" text-anchor="middle" font-size="10" fill="#41586f">analyse</text>
+  <text x="1093" y="663" text-anchor="middle" font-size="10" fill="#41586f">d'observables</text>
+
+  <!-- thehive -->
+  <g filter="url(#sh)"><rect x="1175" y="592" width="140" height="76" rx="9" fill="#ffffff" stroke="#c0392b" stroke-width="1.3"/></g>
+  <text x="1245" y="614" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1a1a1a">thehive-logistia</text>
+  <text x="1245" y="632" text-anchor="middle" font-size="10" fill="#41586f">10.40.40.40</text>
+  <text x="1245" y="650" text-anchor="middle" font-size="10" fill="#41586f">gestion des</text>
+  <text x="1245" y="663" text-anchor="middle" font-size="10" fill="#41586f">incidents</text>
+
+  <!-- chaine SOC : fleches -->
+  <path d="M850,630 L866,630" stroke="#c0392b" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M1011,630 L1023,630" stroke="#c0392b" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M1163,630 L1175,630" stroke="#c0392b" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <!-- bandeau chaine detection -->
+  <rect x="650" y="690" width="665" height="72" rx="9" fill="#ffffff" stroke="#c9d4e0" stroke-width="1.2"/>
+  <text x="662" y="712" font-size="12.5" font-weight="700" fill="#1f3a5f">Chaîne de sécurité :</text>
+  <text x="662" y="734" font-size="11.5" fill="#41586f">1. Détecter (Wazuh + règles + CTI MISP)   →   2. Comprendre (IA : Isolation Forest + phi3)   →</text>
+  <text x="662" y="752" font-size="11.5" fill="#41586f">3. Répondre (SOAR : blocage automatique)   →   4. Enquêter (TheHive + Cortex)</text>
+
+  <!-- agents Wazuh (mention) -->
+  <path d="M695,504 C695,530 720,560 748,590" fill="none" stroke="#8a94a6" stroke-width="1.4" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+  <path d="M850,504 C850,540 800,560 770,590" fill="none" stroke="#8a94a6" stroke-width="1.4" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+  <path d="M1110,504 C1110,530 900,560 852,610" fill="none" stroke="#8a94a6" stroke-width="1.4" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+  <path d="M1265,504 C1265,540 900,570 852,625" fill="none" stroke="#8a94a6" stroke-width="1.4" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+  <text x="620" y="545" text-anchor="end" font-size="9.5" fill="#8a94a6" transform="rotate(0)"></text>
+  <rect x="628" y="516" width="230" height="20" rx="5" fill="#eef1f5"/>
+  <text x="640" y="530" font-size="10" fill="#5a6b7f">Agents Wazuh sur les 9 machines → logs remontés au SOC</text>
+
+  <!-- ===== VLAN70 Admin ===== -->
+  <g filter="url(#sh)">
+    <rect x="628" y="800" width="705" height="66" rx="10" fill="#eef1f5" stroke="#5a6b7f" stroke-width="1.4"/>
+  </g>
+  <text x="648" y="826" font-size="13.5" font-weight="700" fill="#1f3a5f">VLAN70 · Admin  ·  10.70.70.0/24</text>
+  <text x="648" y="847" font-size="11" fill="#41586f">Poste d'administration — seul autorisé en SSH (port 22) sur toutes les VM et à l'interface Proxmox (8006).</text>
+  <text x="648" y="861" font-size="10" fill="#8a94a6">Zone d'administration cloisonnée, à surface d'exposition réduite.</text>
+
+  <!-- ===== Sauvegarde 3-2-1 (bandeau bas) ===== -->
+  <g filter="url(#sh)">
+    <rect x="628" y="884" width="705" height="106" rx="10" fill="#ffffff" stroke="#2b8ca6" stroke-width="1.4"/>
+  </g>
+  <text x="648" y="908" font-size="13.5" font-weight="700" fill="#1f6a80">Résilience — Stratégie de sauvegarde 3-2-1</text>
+  <text x="648" y="931" font-size="11" fill="#41586f">• Copie 1 : données live sur chaque VM</text>
+  <text x="648" y="950" font-size="11" fill="#41586f">• Copie 2 : sauvegarde applicative (rsync) sur backup-logistia</text>
+  <text x="648" y="969" font-size="11" fill="#41586f">• Copie 3 : snapshots complets des 10 VM par Proxmox Backup Server — tous les jours à 22h30</text>
+  <text x="1180" y="985" font-size="9.5" fill="#8a94a6">RTO ≈ 15 min</text>
+
+  <!-- ======================= LEGENDE ======================= -->
+  <g filter="url(#sh)">
+    <rect x="60" y="400" width="500" height="590" rx="12" fill="#ffffff" stroke="#c9d4e0" stroke-width="1.4"/>
+  </g>
+  <text x="80" y="428" font-size="15" font-weight="700" fill="#1f3a5f">Légende &amp; principes</text>
+
+  <line x1="80" y1="442" x2="540" y2="442" stroke="#e1e4e8" stroke-width="1"/>
+
+  <!-- vpn -->
+  <line x1="88" y1="462" x2="128" y2="462" stroke="#c0392b" stroke-width="2.4" stroke-dasharray="8 5"/>
+  <text x="140" y="466" font-size="12" fill="#41586f">Liaison VPN chiffrée (architecture cible, non déployée en lab)</text>
+  <!-- internet -->
+  <line x1="88" y1="486" x2="128" y2="486" stroke="#5a6b7f" stroke-width="2" stroke-dasharray="2 3"/>
+  <text x="140" y="490" font-size="12" fill="#41586f">Accès Internet (HTTPS 443 uniquement)</text>
+  <!-- flux autorise -->
+  <line x1="88" y1="510" x2="128" y2="510" stroke="#5a6b7f" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="140" y="514" font-size="12" fill="#41586f">Flux réseau autorisé (deny by default)</text>
+  <!-- agents -->
+  <line x1="88" y1="534" x2="128" y2="534" stroke="#8a94a6" stroke-width="1.4" stroke-dasharray="3 3"/>
+  <text x="140" y="538" font-size="12" fill="#41586f">Remontée des logs des agents vers le SOC</text>
+
+  <line x1="80" y1="556" x2="540" y2="556" stroke="#e1e4e8" stroke-width="1"/>
+
+  <text x="80" y="580" font-size="13" font-weight="700" fill="#1f3a5f">Segmentation en 7 VLAN — 10 machines virtuelles</text>
+  <g font-size="11.5" fill="#41586f">
+    <rect x="88" y="592" width="16" height="12" rx="3" fill="#fff7ed" stroke="#e08a2b"/>
+    <text x="112" y="602">VLAN10 DMZ — serveur applicatif exposé</text>
+    <rect x="88" y="612" width="16" height="12" rx="3" fill="#eef7f0" stroke="#3a9d5d"/>
+    <text x="112" y="622">VLAN20 Data — base MariaDB isolée</text>
+    <rect x="88" y="632" width="16" height="12" rx="3" fill="#eef1f7" stroke="#3d5a99"/>
+    <text x="112" y="642">VLAN30 DevOps — CI/CD, Terraform, Ansible</text>
+    <rect x="88" y="652" width="16" height="12" rx="3" fill="#fbf0f0" stroke="#c0392b"/>
+    <text x="112" y="662">VLAN40 SOC — SIEM + MISP + Cortex + TheHive</text>
+    <rect x="88" y="672" width="16" height="12" rx="3" fill="#f3eef9" stroke="#7d4fbf"/>
+    <text x="112" y="682">VLAN50 IA — détection d'anomalies (local)</text>
+    <rect x="88" y="692" width="16" height="12" rx="3" fill="#eef4f7" stroke="#2b8ca6"/>
+    <text x="112" y="702">VLAN60 Backup — sauvegardes 3-2-1</text>
+    <rect x="88" y="712" width="16" height="12" rx="3" fill="#eef1f5" stroke="#5a6b7f"/>
+    <text x="112" y="722">VLAN70 Admin — administration cloisonnée</text>
+  </g>
+
+  <line x1="80" y1="738" x2="540" y2="738" stroke="#e1e4e8" stroke-width="1"/>
+
+  <text x="80" y="762" font-size="13" font-weight="700" fill="#1f3a5f">Principes de sécurité</text>
+  <g font-size="11.5" fill="#41586f">
+    <text x="88" y="784">• Security by design — durcissement dès le déploiement</text>
+    <text x="88" y="804">• Moindre privilège — pare-feu nftables « deny by default »</text>
+    <text x="88" y="824">• Défense en profondeur — cloisonnement des zones</text>
+    <text x="88" y="844">• Point d'entrée unique — routeur filtrant + surveillé</text>
+    <text x="88" y="864">• Base de données jamais exposée à Internet</text>
+    <text x="88" y="884">• Traçabilité — journalisation centralisée (SIEM)</text>
+  </g>
+
+  <line x1="80" y1="902" x2="540" y2="902" stroke="#e1e4e8" stroke-width="1"/>
+  <text x="80" y="924" font-size="12" font-weight="700" fill="#1f3a5f">Automatisation (IaC)</text>
+  <text x="88" y="944" font-size="11.5" fill="#41586f">Terraform (création des 10 VM) + Ansible (configuration),</text>
+  <text x="88" y="962" font-size="11.5" fill="#41586f">déployables manuellement ou via GitHub Actions (CI/CD).</text>
+  <text x="88" y="980" font-size="10.5" fill="#8a94a6">Dépôt : github.com/lsteeve/LOGISTIA</text>
+</svg>
