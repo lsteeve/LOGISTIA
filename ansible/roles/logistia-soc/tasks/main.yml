@@ -25,6 +25,21 @@
     name: wazuh-manager
     enabled: true
     state: started
+- name: Repertoire override systemd wazuh-manager
+  file:
+    path: /etc/systemd/system/wazuh-manager.service.d
+    state: directory
+    mode: '0755'
+- name: Augmenter le timeout de demarrage de wazuh-manager
+  copy:
+    dest: /etc/systemd/system/wazuh-manager.service.d/timeout.conf
+    content: |
+      [Service]
+      TimeoutStartSec=600
+    mode: '0644'
+- name: Recharger systemd apres l'override du timeout manager
+  systemd:
+    daemon_reload: true
 
 - name: Cle GPG Grafana
   shell: wget -q -O - https://packages.grafana.com/gpg.key | gpg --dearmor -o /usr/share/keyrings/grafana.gpg
