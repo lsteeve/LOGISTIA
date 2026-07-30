@@ -21,7 +21,60 @@ L'infrastructure est **segmentée par VLAN** : chaque fonction réside dans son 
 
 La chaîne de **Threat Intelligence** (MISP, Cortex, TheHive) est regroupée dans le **VLAN40 SOC**, aux côtés du SIEM et de la supervision.
 
-## 3. Machines virtuelles
+## 3. Mise en œuvre réseau (bridges Proxmox)
+
+La segmentation décrite ci-dessus est réalisée concrètement au moyen de **bridges Proxmox**. Un bridge est un **commutateur (switch) virtuel** interne à l'hyperviseur : chaque zone correspond à un bridge dédié, ce qui garantit une isolation au niveau de la topologie du réseau.
+
+### Un bridge par zone
+
+L'hôte Proxmox définit huit bridges. Seul le premier, `vmbr0`, est relié à la carte réseau physique du serveur (`nic0`) : c'est l'unique point de contact avec l'extérieur. Les sept autres bridges sont **purement internes** (`bridge-ports none`), sans aucune connexion physique vers le monde extérieur.
+
+| Bridge | Réseau | Passerelle | Zone |
+|--------|--------|-----------|------|
+| `vmbr0` | 192.168.10.0/24 | 192.168.10.254 | Périmètre (accès extérieur, carte physique) |
+| `vmbr1` | 10.10.10.0/24 | 10.10.10.254 | DMZ |
+| `vmbr2` | 10.20.20.0/24 | 10.20.20.254 | Data |
+| `vmbr3` | 10.30.30.0/24 | 10.30.30.254 | DevOps |
+| `vmbr4` | 10.40.40.0/24 | 10.40.40.254 | SOC |
+| `vmbr5` | 10.50.50.0/24 | 10.50.50.254 | IA |
+| `vmbr6` | 10.60.60.0/24 | 10.60.60.254 | Backup |
+| `vmbr7` | 10.70.70.0/24 | 10.70.70.254 | Admin |
+
+### Le routeur, présent dans toutes les zones
+
+Le **routeur** (VM 101) est la pièce maîtresse du dispositif : il possède **huit interfaces réseau**, une connectée à chacun des huit bridges. Il est donc présent dans toutes les zones à la fois, ce qui lui permet de router et de filtrer le trafic entre elles.
+
+```text
+Routeur (VM 101)
+ |- net0 -> vmbr0   (acces exterieur)
+ |- net1 -> vmbr1   (DMZ)
+ |- net2 -> vmbr2   (Data)
+ |- net3 -> vmbr3   (DevOps)
+ |- net4 -> vmbr4   (SOC)
+ |- net5 -> vmbr5   (IA)
+ |- net6 -> vmbr6   (Backup)
+ \- net7 -> vmbr7   (Admin)
+```
+
+À l'inverse, **chaque autre machine ne possède qu'une seule interface**, rattachée uniquement au bridge de sa zone. Par exemple, le serveur applicatif est connecté à `vmbr1` (DMZ), et le SOC à `vmbr4`.
+
+### Isolation par la topologie
+
+Cette conception a une conséquence forte : deux machines de zones différentes **ne peuvent pas communiquer directement**, car leurs bridges ne sont reliés que par le routeur. Tout échange entre zones traverse obligatoirement le routeur, où **nftables** applique la politique de filtrage (voir la section « Flux réseau autorisés »).
+
+L'isolation ne repose donc pas seulement sur des règles logiques : elle est **inscrite dans la structure même du réseau**. Même en cas de mauvaise configuration d'une règle, une zone reste physiquement séparée des autres tant que le routeur ne relaie pas le trafic.
+
+### Ce qui est automatisé, ce qui est un prérequis
+
+La mise en place du réseau se répartit en trois niveaux :
+
+- **Prérequis (hyperviseur)** — les huit bridges `vmbr0` à `vmbr7` doivent exister sur l'hôte Proxmox avant tout déploiement. Ils constituent le socle physique du réseau.
+- **Automatisé (Terraform)** — la création des machines et leur rattachement au bon bridge selon leur zone. Le routeur reçoit une interface dans chacun des huit bridges.
+- **Automatisé (Ansible)** — la configuration du routage et du filtrage nftables à l'intérieur du routeur.
+
+Autrement dit, les switchs virtuels sont un prérequis de l'hôte, mais l'ensemble du câblage des machines et de la configuration réseau est reproductible automatiquement.
+
+## 4. Machines virtuelles
 
 | VMID | Nom | IP | VLAN | vCPU | RAM | Disque | Services |
 |------|-----|----|------|------|-----|--------|---------|
@@ -38,7 +91,7 @@ La chaîne de **Threat Intelligence** (MISP, Cortex, TheHive) est regroupée dan
 
 Les VM sont clonées depuis un **template Debian 13 cloud-init** (VMID 9000) et démarrent automatiquement au boot de l'hyperviseur.
 
-## 4. Schéma logique
+## 5. Schéma logique
 
 Un schéma complet et illustré est fourni dans [architecture-schema.html](architecture-schema.html). Version simplifiée ci-dessous :
 
@@ -62,7 +115,7 @@ Un schéma complet et illustré est fourni dans [architecture-schema.html](archi
               VLAN70 Admin  ── poste d'administration
 ```
 
-## 5. Flux réseau autorisés
+## 6. Flux réseau autorisés
 
 Le routeur applique une politique **`drop`** par défaut sur la chaîne `forward`. Seuls les flux nécessaires sont ouverts :
 
@@ -82,7 +135,7 @@ Le routeur applique une politique **`drop`** par défaut sur la chaîne `forward
 
 Le forwarding IPv4 est rendu **persistant** (fichier `sysctl.d` prioritaire + directive `ExecStartPost` sur le service nftables) afin de résister aux redémarrages.
 
-## 6. Choix d'architecture
+## 7. Choix d'architecture
 
 - **Moindre privilège** : aucun flux inter-VLAN n'est ouvert sans justification ; la propagation latérale est limitée.
 - **SIEM au cœur du SOC** : Wazuh, la supervision et la CTI partagent le VLAN40, ce qui facilite la corrélation tout en isolant l'ensemble.
