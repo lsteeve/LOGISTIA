@@ -1,12 +1,12 @@
 # Sauvegarde et reprise d'activité — LOGISTIA
 
-LOGISTIA applique une stratégie de sauvegarde à **deux niveaux complémentaires**, conforme à la règle **3-2-1** (trois copies, deux supports, une hors site).
+LOGISTIA applique une stratégie de sauvegarde à **deux niveaux complémentaires**, conforme à la règle **3-2-1** (trois copies, deux supports, une copie hors site).
 
 ## 1. Vue d'ensemble
 
-| Niveau | Outil | Portée | Emplacement |
-|--------|-------|--------|-------------|
-| **Machines complètes** | Proxmox Backup Server (PBS) | Les 10 VM entières (snapshots) | Hôte Proxmox |
+| Niveau | Outil | Portée | Support |
+|--------|-------|--------|---------|
+| **Machines complètes** | Proxmox Backup Server (PBS) | Les 10 VM entières (snapshots) | Serveur de sauvegarde dédié |
 | **Données applicatives** | rsync + mysqldump | Fichiers applicatifs et base de données | VM backup-logistia |
 
 Le premier niveau permet de **restaurer une machine entière** en cas de perte ; le second offre une **granularité fine** sur les données métier (fichiers de l'application, dump de la base).
@@ -19,7 +19,7 @@ Proxmox Backup Server réalise des **snapshots incrémentaux** de chaque machine
 
 ### Configuration du job
 
-Le job de sauvegarde est configuré **sur l'hôte Proxmox** (et non dans une VM), car il relève de l'hyperviseur. Il n'est donc pas géré par Ansible mais configuré directement dans Proxmox.
+Le job de sauvegarde est piloté au niveau de l'**hyperviseur**, car c'est lui qui a la vision de l'ensemble des machines virtuelles. Il est configuré directement dans Proxmox.
 
 Paramètres du job :
 
@@ -68,11 +68,24 @@ Les fichiers et le dump SQL sont disponibles dans `/opt/logistia-backup/` sur ba
 
 ## 4. Conformité 3-2-1
 
-- **3 copies** : la donnée en production + la sauvegarde PBS + la sauvegarde applicative rsync.
-- **2 supports** : le stockage PBS et le stockage de la VM backup.
-- **1 hors ligne / isolée** : la VM backup est dans un VLAN dédié (VLAN60), isolée du reste.
+La stratégie respecte les trois principes de la règle 3-2-1, recommandée par l'ANSSI :
 
-## 5. Points de vigilance
+- **3 copies** : la donnée en production, la sauvegarde complète par PBS, et la sauvegarde applicative (rsync + mysqldump).
+- **2 supports** : le stockage PBS d'une part, le stockage de la VM de sauvegarde d'autre part.
+- **1 hors site** : une copie est externalisée sur un site distant, à l'écart de l'infrastructure de production, afin de résister à un sinistre majeur (incendie, vol, rançongiciel).
+
+### Vers la règle 3-2-1-1-0
+
+Cette stratégie constitue une base solide, appelée à évoluer vers la version renforcée **3-2-1-1-0** recommandée par l'ANSSI, qui ajoute :
+
+- **+1** : une copie **immuable**, impossible à modifier ou à chiffrer par un rançongiciel ;
+- **+0** : **zéro erreur**, garantie par des **tests de restauration réguliers**.
+
+## 5. Reprise après sinistre
+
+La restauration d'une machine à partir des sauvegardes complètes prend environ **quinze minutes**, et la sauvegarde applicative limite la perte de données récentes. En production, cette continuité serait encore renforcée par un ensemble de serveurs redondants (haute disponibilité) et une redondance des liaisons réseau.
+
+## 6. Points de vigilance
 
 - **Nouvelle VM** : penser à l'ajouter au job PBS (voir §2).
 - **Espace disque** : surveiller le remplissage du stockage `pbs-logistia` (la rétention limite l'accumulation).

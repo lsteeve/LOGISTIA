@@ -1,8 +1,8 @@
 # Tests de détection et validation
 
-Ce dossier rassemble les **tests de détection** menés sur l'infrastructure LOGISTIA et leurs résultats. Il apporte la preuve concrète que la chaîne de sécurité fonctionne de bout en bout : collecte des journaux, détection des menaces, réponse automatisée et investigation.
+Ce document rassemble les **tests de détection** menés sur l'infrastructure LOGISTIA et leurs résultats. Il apporte la preuve concrète que la chaîne de sécurité fonctionne de bout en bout : collecte des journaux, détection des menaces, réponse automatisée et investigation.
 
-Pour le fonctionnement détaillé de la chaîne, voir [`../SOC-SOAR.md`](../SOC-SOAR.md).
+Pour le fonctionnement détaillé de la chaîne, voir [`SOC-SOAR.md`](SOC-SOAR.md).
 
 ## 1. Synthèse des tests
 
@@ -19,7 +19,7 @@ Pour le fonctionnement détaillé de la chaîne, voir [`../SOC-SOAR.md`](../SOC-
 
 Un agent est installé sur chaque machine et remonte ses journaux au SIEM. Neuf agents sont actifs, plus le serveur Wazuh lui-même.
 
-![Agents Wazuh actifs](img/wazuh-agents.png)
+![Agents Wazuh actifs](img/detection-wazuh-agents.png)
 
 *Les neuf agents connectés dans le tableau de bord Wazuh (menu Endpoints).*
 
@@ -58,7 +58,7 @@ Le blocage est **temporaire** (600 secondes) : il neutralise l'attaque sans bann
 
 Le module d'IA lit les alertes réelles produites par le SOC, sélectionne les plus importantes, et produit pour chacune une explication en français avec une recommandation d'action. Le modèle (phi3) s'exécute **entièrement en local**, aucune donnée ne sort de l'infrastructure.
 
-![Tableau de bord de l'IA](img/dashboard-ia.png)
+![Tableau de bord de l'IA](img/detection-dashboard-ia.png)
 
 *Le tableau de bord de l'IA affiche les rapports d'analyse : pour chaque incident, une explication claire et une recommandation.*
 

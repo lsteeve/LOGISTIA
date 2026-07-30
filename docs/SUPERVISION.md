@@ -1,8 +1,8 @@
 # Supervision — Prometheus & Grafana
 
-Ce dossier présente la **supervision de l'état de l'infrastructure** LOGISTIA : la mesure en temps réel de la santé des dix machines virtuelles (processeur, mémoire, disque, réseau) et sa restitution sous forme de tableaux de bord.
+Ce document présente la **supervision de l'état de l'infrastructure** LOGISTIA : la mesure en temps réel de la santé des dix machines virtuelles (processeur, mémoire, disque, réseau) et sa restitution sous forme de tableaux de bord.
 
-La supervision est complémentaire de la détection de sécurité (voir [`tests-detection/`](../tests-detection/)) : là où le SOC surveille les **menaces**, la supervision surveille le **bon fonctionnement** des machines.
+La supervision est complémentaire de la détection de sécurité (voir [`TESTS-DETECTION.md`](TESTS-DETECTION.md)) : là où le SOC surveille les **menaces**, la supervision surveille le **bon fonctionnement** des machines.
 
 ## 1. Les composants
 
@@ -31,13 +31,13 @@ Le tableau de bord **Node Exporter Full** offre une vue complète par machine : 
 
 ### Serveur applicatif (app-logistia)
 
-![Tableau de bord Grafana — app-logistia](img/grafana-app.png)
+![Tableau de bord Grafana — app-logistia](img/supervision-grafana-app.png)
 
 *Vue Node Exporter du serveur applicatif : charge CPU, mémoire utilisée, trafic réseau et espace disque.*
 
 ### Centre de sécurité (soc-logistia)
 
-![Tableau de bord Grafana — soc-logistia](img/grafana-soc.png)
+![Tableau de bord Grafana — soc-logistia](img/supervision-grafana-soc.png)
 
 *Vue Node Exporter du centre de sécurité. Cette machine, la plus sollicitée, héberge Wazuh, Prometheus, Grafana et le module d'IA : sa consommation mémoire est logiquement la plus élevée.*
 
